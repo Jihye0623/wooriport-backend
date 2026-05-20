@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transactions, UUID> {
@@ -60,4 +61,18 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
             @Param("userId") UUID userId,
             @Param("year") int year,
             @Param("month") int month);
+
+    @Query("""
+    SELECT t FROM Transactions t
+    WHERE t.user.id = :userId
+      AND t.amount > 0
+      AND (
+          t.senderName LIKE '%급여%'
+          OR t.senderName LIKE '%월급%'
+          OR t.senderName LIKE '%임금%'
+          OR t.senderName LIKE '%salary%'
+      )
+    ORDER BY t.transactionAt DESC
+    """)
+    List<Transactions> findSalaryTransactionsByUserId(@Param("userId") UUID userId);
 }
