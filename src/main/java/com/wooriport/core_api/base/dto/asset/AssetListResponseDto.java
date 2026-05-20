@@ -10,7 +10,6 @@ import java.util.UUID;
 public class AssetListResponseDto {
     private List<AssetItem> assets;
     private int totalCount;
-    private Long totalBalance;
 
     @Getter
     @Builder
