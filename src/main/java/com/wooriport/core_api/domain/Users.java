@@ -56,7 +56,7 @@ public class Users extends SoftDeleteEntity {
     }
 
     // 비즈니스 메서드
-    public void updateFinanceType(PortiType PortiType) {
+    public void updatePortiType(PortiType portiType) {
         this.portiType = portiType;
     }
 
