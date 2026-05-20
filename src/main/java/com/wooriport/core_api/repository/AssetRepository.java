@@ -48,4 +48,8 @@ public interface AssetRepository extends JpaRepository<Assets, UUID> {
           AND a.deletedAt IS NULL
         """)
     Optional<Assets> findByAssetNumber(@Param("assetNumber") String assetNumber);
+
+    // 기존에 findByUserIdAndIsSalaryTrue() 있으면 아래 것도 추가
+    Optional<Assets> findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(UUID userId);
+
 }

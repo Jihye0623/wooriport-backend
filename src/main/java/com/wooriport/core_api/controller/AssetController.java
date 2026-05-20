@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @Tag(name = "Asset", description = "자산(계좌) 연동 및 조회 관리 API")
 @RequestMapping("/api/v1/assets")
 @RestController
@@ -44,6 +46,24 @@ public class AssetController {
 
         return ResponseEntity.ok(
                 ResponseDTO.success(200, "자산 목록 조회 성공", data));
+    }
+
+    @Operation(
+            summary = "급여통장 설정",
+            description = """
+            선택한 계좌를 급여통장으로 설정합니다.
+            응답의 isWooriBank 값으로 프론트가 다음 단계를 분기합니다.
+            - true  → 바로 다음 단계
+            - false → 자동이체 설정 화면으로 이동
+            """
+    )
+    @PatchMapping("/{assetId}/salary")
+    public ResponseEntity<ResponseDTO<SalarySettingResponseDto>> setSalaryAccount(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID assetId) {
+
+        return ResponseEntity.ok(ResponseDTO.success(200, "급여통장 설정 완료",
+                assetService.setSalaryAccount(userDetails.getUserId(), assetId)));
     }
 
     // POST /api/v1/assets/auto-transfer/connect

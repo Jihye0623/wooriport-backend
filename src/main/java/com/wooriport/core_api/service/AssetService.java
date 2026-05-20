@@ -34,7 +34,7 @@ public class AssetService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // 이미 연동된 계좌 있으면 synced_at만 갱신
+        // 이미 연동된 계좌 있으면 그 더미데이터 삭제
         List<Assets> existing = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
         if (!existing.isEmpty()) {
             existing.forEach(Assets::delete);  // deleted_at = NOW()
@@ -58,7 +58,7 @@ public class AssetService {
                         .accountPurpose(d.getAccountPurpose())
                         .assetNumber(d.getAssetNumber())
                         .balance(d.getBalance())
-                        .isSalary(d.getIsSalary())
+                        .isSalary(false)
                         .syncedAt(LocalDateTime.now())
                         .bankType(d.getBankType())
                         .build())
@@ -87,6 +87,39 @@ public class AssetService {
         return toListResponse(assets);
     }
 
+    // ──────────────────────────────────────
+    // PATCH /assets/{assetId}/salary
+    // 급여통장 설정
+    // 1. 기존 급여통장 해제
+    // 2. 선택한 계좌 급여통장으로 설정
+    // 3. isWooriBank 반환 → 프론트 분기용
+    // ──────────────────────────────────────
+    @Transactional
+    public SalarySettingResponseDto setSalaryAccount(UUID userId, UUID assetId) {
+
+        // 기존 급여통장 해제
+        assetRepository.findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(userId)
+                .ifPresent(Assets::unmarkAsSalary);
+
+        // 선택한 계좌 급여통장 설정
+        Assets asset = assetRepository.findByIdAndUserId(assetId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다."));
+
+        asset.markAsSalary();
+
+        if (asset.isWooriBank()) {
+            Users user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+            user.connectAutoTransfer(asset.getId());
+        }
+
+        return SalarySettingResponseDto.builder()
+                .assetId(asset.getId())
+                .institution(asset.getInstitution())
+                .isWooriBank(asset.isWooriBank())  // 프론트 분기용
+                .build();
+    }
+
     // POST /assets/auto-transfer/connect
     // 타행 급여 계좌 → 우리은행 자동이체 연결
     // users 테이블 수정 없음 — assets만 사용
@@ -95,8 +128,9 @@ public class AssetService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
 
-        Assets fromAsset = assetRepository.findByIdAndUserId(request.getFromAssetId(), userId)
-                .orElseThrow(() -> new IllegalArgumentException("출금 계좌를 찾을 수 없습니다."));
+        Assets fromAsset = assetRepository
+                .findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(userId)
+                .orElseThrow(() -> new IllegalArgumentException("급여통장을 먼저 설정해주세요."));
 
         Assets toAsset = assetRepository.findByIdAndUserId(request.getToAssetId(), userId)
                 .orElseThrow(() -> new IllegalArgumentException("입금 계좌를 찾을 수 없습니다."));
@@ -105,15 +139,11 @@ public class AssetService {
             throw new IllegalArgumentException("자동이체 연결은 우리은행 계좌만 가능합니다.");
         }
 
-        // 기존 급여 통장 해제
-        assetRepository.findByUserIdAndIsSalaryTrue(userId)
-                .ifPresent(Assets::unmarkAsSalary);
+        user.connectAutoTransfer(toAsset.getId());
+        user.updateSalaryDate(request.getSalaryDate());
 
-        // 타행 급여 통장 지정
-        fromAsset.markAsSalary();
-
-        // 우리은행 이체 대상 계좌 저장 ← 추가
-        user.connectAutoTransfer(fromAsset.getId(), toAsset.getId());
+        log.info("[AssetService] 자동이체 연결 — 타행: {}, 우리은행: {}, 급여일: {}",
+                fromAsset.getInstitution(), toAsset.getInstitution(), request.getSalaryDate());
     }
 
     // GET /assets/auto-transfer/status
@@ -125,7 +155,7 @@ public class AssetService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
 
         Optional<Assets> salaryAsset = assetRepository
-                .findByUserIdAndIsSalaryTrue(userId);  // ← 쿼리 변경
+                .findByUserIdAndIsSalaryTrue(userId);
 
         // SALARY 계좌 없음 → 자동이체 미연결
         if (salaryAsset.isEmpty()) {
@@ -205,7 +235,6 @@ public class AssetService {
         return AssetListResponseDto.builder()
                 .assets(items)
                 .totalCount(items.size())
-                .totalBalance(totalBalance)
                 .build();
     }
 }
