@@ -4,6 +4,7 @@ import com.wooriport.core_api.base.dto.transfer.TransferPlanCreateRequestDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanUpdateRequestDto;
 import com.wooriport.core_api.domain.Assets;
+import com.wooriport.core_api.domain.Portfolios;
 import com.wooriport.core_api.domain.TransferPlans;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
@@ -57,7 +58,7 @@ public class TransferPlanService {
                     TransferPlans.builder()
                             .user(user)
                             .asset(asset)
-                            .purpose(TransferPlans.TransferPurpose.valueOf(item.getPurpose()))
+                            .assetType(Portfolios.AssetType.valueOf(item.getAssetType()))
                             .plannedAmount(item.getPlannedAmount())
                             .isConfirmed(false)
                             .scheduledDate(request.getScheduledDate())
@@ -111,7 +112,7 @@ public class TransferPlanService {
                         .id(p.getId())
                         .assetId(p.getAsset().getId())
                         .institution(p.getAsset().getInstitution())
-                        .purpose(p.getPurpose().name())
+                        .assetType(p.getAssetType().name())
                         .plannedAmount(p.getPlannedAmount())
                         .isConfirmed(p.getIsConfirmed())
                         .transferScope(p.getTransferScope().name())

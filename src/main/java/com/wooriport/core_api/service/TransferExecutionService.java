@@ -45,7 +45,7 @@ public class TransferExecutionService {
                         .id(e.getId())
                         .fromInstitution(e.getFromAsset().getInstitution())
                         .toInstitution(e.getToAsset().getInstitution())
-                        .purpose(e.getPlan().getPurpose().name())
+                        .assetType(e.getPlan().getAssetType().name())
                         .amount(e.getAmount())
                         .status(e.getStatus().name())
                         .executedAt(e.getExecutedAt())

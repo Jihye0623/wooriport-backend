@@ -2,8 +2,8 @@ package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.config.security.CustomUserDetails;
-import com.wooriport.core_api.base.dto.goal.*;
-import com.wooriport.core_api.service.GoalAgentService;
+import com.wooriport.core_api.base.dto.event.*;
+import com.wooriport.core_api.service.EventAgentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,11 +23,11 @@ import org.springframework.web.bind.annotation.*;
         """
 )
 @RestController
-@RequestMapping("/api/v1/goal")
+@RequestMapping("/api/v1/event")
 @RequiredArgsConstructor
-public class GoalAgentController {
+public class EventAgentController {
 
-    private final GoalAgentService goalAgentService;
+    private final EventAgentService eventAgentService;
 
     // ────────────────────────────────────────────
     // STEP 2-2. 결혼 옵션 → 예산 산정
@@ -42,7 +42,7 @@ public class GoalAgentController {
             @Valid @RequestBody WeddingRequestDto request) {
 
         return ResponseEntity.ok(ResponseDTO.success(200, "결혼 예산 산정 성공",
-                goalAgentService.estimateWedding(userDetails.getUserId(), request)));
+                eventAgentService.estimateWedding(userDetails.getUserId(), request)));
     }
 
     // ────────────────────────────────────────────
@@ -58,7 +58,7 @@ public class GoalAgentController {
             @Valid @RequestBody TravelRequestDto request) {
 
         return ResponseEntity.ok(ResponseDTO.success(200, "여행 예산 산정 성공",
-                goalAgentService.estimateTravel(userDetails.getUserId(), request)));
+                eventAgentService.estimateTravel(userDetails.getUserId(), request)));
     }
 
     // ────────────────────────────────────────────
@@ -74,7 +74,7 @@ public class GoalAgentController {
             @Valid @RequestBody PurchaseRequestDto request) {
 
         return ResponseEntity.ok(ResponseDTO.success(200, "구매 후보 조회 성공",
-                goalAgentService.searchPurchase(userDetails.getUserId(), request)));
+                eventAgentService.searchPurchase(userDetails.getUserId(), request)));
     }
 
     // ────────────────────────────────────────────
@@ -91,7 +91,7 @@ public class GoalAgentController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResponseDTO.success(201, "포트폴리오 추천 성공",
-                        goalAgentService.createPortfolio(userDetails.getUserId(), request)));
+                        eventAgentService.createPortfolio(userDetails.getUserId(), request)));
     }
 
     // ────────────────────────────────────────────
@@ -107,7 +107,7 @@ public class GoalAgentController {
             @Valid @RequestBody AnalysisRequestDto request) {
 
         return ResponseEntity.ok(ResponseDTO.success(200, "심층 진단 성공",
-                goalAgentService.analyzePortfolio(userDetails.getUserId(), request)));
+                eventAgentService.analyzePortfolio(userDetails.getUserId(), request)));
     }
 
     // ────────────────────────────────────────────
@@ -119,7 +119,7 @@ public class GoalAgentController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody GoalConfirmRequestDto request) {
 
-        goalAgentService.confirmGoal(userDetails.getUserId(), request);
+        eventAgentService.confirmGoal(userDetails.getUserId(), request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResponseDTO.success(201, "포트폴리오 확정 완료", null));

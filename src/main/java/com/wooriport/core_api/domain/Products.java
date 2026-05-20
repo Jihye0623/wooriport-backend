@@ -20,7 +20,7 @@ public class Products extends SoftDeleteEntity {
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
-    // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권)
+    // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권) / IRP
     @Enumerated(EnumType.STRING)
     @Column(name = "product_type", nullable = false, length = 20)
     private ProductType productType;
@@ -52,6 +52,6 @@ public class Products extends SoftDeleteEntity {
     }
 
     public enum ProductType {
-        SAVING, DEPOSIT, STOCK, BOND
+        SAVING, DEPOSIT, STOCK, BOND, IRP
     }
 }

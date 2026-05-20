@@ -37,12 +37,9 @@ public class Users extends SoftDeleteEntity {
     private UserStatus status = UserStatus.ACTIVE;
 
     // 추구미 설문 결과 유형
-    // ROCKET(목표로켓) / TURTLE(단단한거북이) / FOX(영리한여우) /
-    // MOUNTAIN(산) / HUNTER(집중사냥꾼) / SPROUT(느린성장) /
-    // SPARK(스파크) / WAVE(자유로운파도)
     @Enumerated(EnumType.STRING)
-    @Column(name = "finance_type", length = 20)
-    private FinanceType financeType;
+    @Column(name = "porti_type", length = 20)
+    private PortiType portiType;
 
     @Column(name = "salary_date")
     private Integer salaryDate;
@@ -59,8 +56,8 @@ public class Users extends SoftDeleteEntity {
     }
 
     // 비즈니스 메서드
-    public void updateFinanceType(FinanceType financeType) {
-        this.financeType = financeType;
+    public void updateFinanceType(PortiType PortiType) {
+        this.portiType = portiType;
     }
 
     public void updateProfile(String name, String phone) {
@@ -82,7 +79,12 @@ public class Users extends SoftDeleteEntity {
         ACTIVE, SUSPENDED, WITHDRAWN
     }
 
-    public enum FinanceType {
-        ROCKET, TURTLE, FOX, MOUNTAIN, HUNTER, SPROUT, SPARK, WAVE
+    public enum PortiType {
+        SWIMMING,       // 수영
+        ARCHERY,        // 양궁
+        JUDO,           // 유도
+        RHYTHMIC,       // 리듬체조
+        FENCING,        // 펜싱
+        CYCLING         // 사이클
     }
 }

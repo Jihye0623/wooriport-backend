@@ -1,14 +1,14 @@
 package com.wooriport.core_api.service;
 
 
-import com.wooriport.core_api.base.dto.portfolio.PortfolioListResponseDto;
-import com.wooriport.core_api.base.dto.portfolio.PortfolioUpdateRequestDto;
+import com.wooriport.core_api.base.dto.eventPortfolio.PortfolioListResponseDto;
+import com.wooriport.core_api.base.dto.eventPortfolio.PortfolioUpdateRequestDto;
 import com.wooriport.core_api.domain.Assets;
-import com.wooriport.core_api.domain.Goals;
-import com.wooriport.core_api.domain.GoalsPortfolios;
+import com.wooriport.core_api.domain.Event;
+import com.wooriport.core_api.domain.EventPortfolios;
 import com.wooriport.core_api.repository.AssetRepository;
-import com.wooriport.core_api.repository.GoalsPortfoliosRepository;
-import com.wooriport.core_api.repository.GoalsRepository;
+import com.wooriport.core_api.repository.EventPortfoliosRepository;
+import com.wooriport.core_api.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +20,10 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class GoalPortfolioService {
+public class EventPortfolioService {
 
-    private final GoalsRepository goalsRepository;
-    private final GoalsPortfoliosRepository goalsPortfoliosRepository;
+    private final EventRepository eventRepository;
+    private final EventPortfoliosRepository eventPortfoliosRepository;
     private final AssetRepository assetRepository;
 
     // ──────────────────────────────────────
@@ -32,11 +32,11 @@ public class GoalPortfolioService {
     @Transactional(readOnly = true)
     public PortfolioListResponseDto getPortfolios(UUID userId, UUID goalId) {
 
-        Goals goal = goalsRepository.findByIdAndUserId(goalId, userId)
+        Event goal = eventRepository.findByIdAndUserId(goalId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("목표를 찾을 수 없습니다."));
 
-        List<GoalsPortfolios> portfolios = goalsPortfoliosRepository
-                .findByGoalId(goalId);
+        List<EventPortfolios> portfolios = eventPortfoliosRepository
+                .findByEventId(goalId);
 
         List<PortfolioListResponseDto.PortfolioItem> items = portfolios.stream()
                 .map(gp -> PortfolioListResponseDto.PortfolioItem.builder()
@@ -58,7 +58,7 @@ public class GoalPortfolioService {
                 .allMatch(PortfolioListResponseDto.PortfolioItem::getIsLinked);
 
         return PortfolioListResponseDto.builder()
-                .goalId(goalId)
+                .eventId(goalId)
                 .portfolios(items)
                 .totalRatio(totalRatio)
                 .isRebalanceable(isRebalanceable)
@@ -72,7 +72,7 @@ public class GoalPortfolioService {
     public PortfolioListResponseDto updatePortfolios(UUID userId, UUID goalId,
                                                      PortfolioUpdateRequestDto request) {
 
-        goalsRepository.findByIdAndUserId(goalId, userId)
+        eventRepository.findByIdAndUserId(goalId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("목표를 찾을 수 없습니다."));
 
         // 비율 합계 검증
@@ -85,10 +85,10 @@ public class GoalPortfolioService {
         }
 
         // 기존 포트폴리오 조회
-        List<GoalsPortfolios> portfolios = goalsPortfoliosRepository.findByGoalId(goalId);
+        List<EventPortfolios> portfolios = eventPortfoliosRepository.findByEventId(goalId);
 
         // productType 기준으로 Map 변환
-        Map<String, GoalsPortfolios> portfolioMap = portfolios.stream()
+        Map<String, EventPortfolios> portfolioMap = portfolios.stream()
                 .collect(Collectors.toMap(
                         gp -> gp.getProductType().name(),
                         gp -> gp));
@@ -106,7 +106,7 @@ public class GoalPortfolioService {
         return getPortfolios(userId, goalId);
     }
 
-    private void updatePortfolio(GoalsPortfolios portfolio,
+    private void updatePortfolio(EventPortfolios portfolio,
                                  Integer ratio, UUID assetId) {
         if (portfolio == null) return;
 

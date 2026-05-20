@@ -25,6 +25,7 @@ public class Assets extends SoftDeleteEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
+    // 금융 기관명
     @Column(name = "institution", nullable = false, length = 100)
     private String institution;
 
@@ -94,7 +95,8 @@ public class Assets extends SoftDeleteEntity {
         BOND,           // 채권
         DEPOSIT,        // 예금
         STOCK,          // 증권 계좌
-        CMA             // CMA
+        CMA,             // CMA
+        IRP
     }
 
     public enum BankType {

@@ -19,7 +19,7 @@ public interface TransferPlanRepository extends JpaRepository<TransferPlans, UUI
           AND tp.year = :year
           AND tp.month = :month
           AND tp.deletedAt IS NULL
-        ORDER BY tp.purpose
+        ORDER BY tp.assetType
         """)
     List<TransferPlans> findByUserIdAndYearAndMonth(
             @Param("userId") UUID userId,
