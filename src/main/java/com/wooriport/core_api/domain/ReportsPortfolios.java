@@ -25,18 +25,18 @@ public class ReportsPortfolios extends BaseEntity {
 
     // nullable — 목표 없이 상품만 있는 경우 가능
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "goal_id")
-    private Goals goal;
+    @JoinColumn(name = "event_id")
+    private Event event;
 
     // nullable — 상품 정보 없는 경우 가능
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
     private Products product;
 
-    // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권)
+    // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권) / IRP
     @Enumerated(EnumType.STRING)
     @Column(name = "product_type", length = 20)
-    private GoalsPortfolios.ProductType productType;
+    private EventPortfolios.ProductType productType;
 
     // 해당 시점 누적 달성 금액 (스냅샷)
     @Column(name = "current_amount")

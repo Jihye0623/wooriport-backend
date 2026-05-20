@@ -26,12 +26,12 @@ public interface SpendingBudgetRepository extends JpaRepository<SpendingBudgets,
     // 목표별 예산 조회 — 특정 goal에 연결된 예산 확인 시
     @Query("""
         SELECT s FROM SpendingBudgets s
-        WHERE s.goal.id = :goalId
+        WHERE s.event.id = :eventId
           AND s.year = :year
           AND s.month = :month
         """)
-    List<SpendingBudgets> findByGoalIdAndYearAndMonth(
-            @Param("goalId") UUID goalId,
+    List<SpendingBudgets> findByEventIdAndYearAndMonth(
+            @Param("eventId") UUID eventId,
             @Param("year") int year,
             @Param("month") int month);
 }

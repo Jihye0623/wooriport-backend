@@ -7,12 +7,12 @@ import lombok.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "goals_portfolios")
+@Table(name = "event_portfolios")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class GoalsPortfolios extends BaseEntity {
+public class EventPortfolios extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -20,8 +20,8 @@ public class GoalsPortfolios extends BaseEntity {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "goal_id", nullable = false)
-    private Goals goal;
+    @JoinColumn(name = "event_id", nullable = false)
+    private Event event;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")

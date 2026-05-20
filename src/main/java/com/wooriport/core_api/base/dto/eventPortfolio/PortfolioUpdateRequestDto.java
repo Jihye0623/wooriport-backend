@@ -1,4 +1,4 @@
-package com.wooriport.core_api.base.dto.portfolio;
+package com.wooriport.core_api.base.dto.eventPortfolio;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;

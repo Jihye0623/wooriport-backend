@@ -1,6 +1,6 @@
 package com.wooriport.core_api.service;
 
-import com.wooriport.core_api.base.dto.goal.*;
+import com.wooriport.core_api.base.dto.event.*;
 import com.wooriport.core_api.domain.*;
 import com.wooriport.core_api.repository.*;
 import jakarta.transaction.Transactional;
@@ -19,12 +19,12 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class GoalAgentService {
+public class EventAgentService {
 
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
-    private final GoalsRepository goalsRepository;
-    private final GoalsPortfoliosRepository goalsPortfoliosRepository;
+    private final EventRepository eventRepository;
+    private final EventPortfoliosRepository eventPortfoliosRepository;
     private final SpendingBudgetRepository spendingBudgetRepository;
 
     private final WebClient webClient;
@@ -172,28 +172,28 @@ public class GoalAgentService {
                 .orElseThrow(() -> new IllegalArgumentException("계좌 없음"));
 
         // 1. goals 저장
-        Goals goal = Goals.builder()
+        Event goal = Event.builder()
                 .user(user)
                 .sourceAsset(sourceAsset)
-                .goalType(Goals.GoalType.valueOf(req.getGoalType()))
+                .eventType(Event.EventType.valueOf(req.getGoalType()))
                 .title(req.getTitle())
                 .targetAmount(req.getTargetAmount())
                 .initialAmount(req.getInitialCapital())
                 .currentAmount(req.getInitialCapital()) // 초기 자본금으로 시작
                 .durationMonths(calculateMonths(req.getDeadline()))
                 .deadline(req.getDeadline())
-                .status(Goals.GoalStatus.ACTIVE)
+                .status(Event.EventStatus.ACTIVE)
                 .build();
 
-        Goals savedGoal = goalsRepository.save(goal);
+        Event savedGoal = eventRepository.save(goal);
 
         // 2. goals_portfolios 저장 (비율만 저장, 계좌 연동은 nullable)
-        List<GoalsPortfolios> portfolios = List.of(
+        List<EventPortfolios> portfolios = List.of(
                 buildPortfolio(savedGoal, "STOCK", req.getStockRatio(), req.getStockAssetId()),
                 buildPortfolio(savedGoal, "BOND",  req.getBondRatio(),  req.getBondAssetId()),
                 buildPortfolio(savedGoal, "DEPOSIT", req.getCashRatio(), req.getDepositAssetId())
         );
-        goalsPortfoliosRepository.saveAll(portfolios);
+        eventPortfoliosRepository.saveAll(portfolios);
 
         // 3. spending_budgets 저장 (STEP 4 예산)
         if (req.getBudgets() != null) {
@@ -201,7 +201,7 @@ public class GoalAgentService {
             List<SpendingBudgets> budgets = req.getBudgets().stream()
                     .map(b -> SpendingBudgets.builder()
                             .user(user)
-                            .goal(savedGoal)
+                            .event(savedGoal)
                             .category(b.getCategory())
                             .amount(b.getAmount())
                             .ratio(b.getRatio())
@@ -213,15 +213,15 @@ public class GoalAgentService {
         }
     }
 
-    private GoalsPortfolios buildPortfolio(Goals goal, String type,
+    private EventPortfolios buildPortfolio(Event goal, String type,
                                            Integer ratio, UUID assetId) {
         Assets asset = (assetId != null)
                 ? assetRepository.findById(assetId).orElse(null)
                 : null;
 
-        return GoalsPortfolios.builder()
-                .goal(goal)
-                .productType(GoalsPortfolios.ProductType.valueOf(type))
+        return EventPortfolios.builder()
+                .event(goal)
+                .productType(EventPortfolios.ProductType.valueOf(type))
                 .productRatio(ratio)
                 .asset(asset)
                 .build();

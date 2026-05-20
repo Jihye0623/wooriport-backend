@@ -1,4 +1,4 @@
-package com.wooriport.core_api.base.dto.portfolio;
+package com.wooriport.core_api.base.dto.eventPortfolio;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -9,7 +9,7 @@ import java.util.UUID;
 @Builder
 public class PortfolioListResponseDto {
 
-    private UUID goalId;
+    private UUID eventId;
     private List<PortfolioItem> portfolios;
     private Integer totalRatio;       // 합계 (100이어야 정상)
     private Boolean isRebalanceable;  // 모든 계좌 연동 완료 시 true

@@ -3,9 +3,7 @@ package com.wooriport.core_api.domain;
 import com.wooriport.core_api.domain.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -26,8 +24,8 @@ public class SpendingBudgets extends BaseEntity {
     private Users user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "goal_id", nullable = false)
-    private Goals goal;
+    @JoinColumn(name = "event_id", nullable = false)
+    private Event event;
 
     // 식비, 문화, 교통 등
     @Column(name = "category", nullable = false, length = 50)

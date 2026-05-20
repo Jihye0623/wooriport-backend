@@ -20,7 +20,7 @@ public class TransferPlanListResponseDto {
         private UUID id;
         private UUID assetId;
         private String institution;   // 금융사명
-        private String purpose;       // SPENDING / EMERGENCY / TARGET / SAVING
+        private String assetType;       // SPENDING / EMERGENCY / TARGET / SAVING
         private Long plannedAmount;
         private Boolean isConfirmed;
         private String transferScope;
