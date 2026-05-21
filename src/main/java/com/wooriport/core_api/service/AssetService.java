@@ -27,6 +27,94 @@ public class AssetService {
     private final UserRepository userRepository;
     private final DummyMydataRepository dummyMydataRepository;
 
+    @Transactional(readOnly = true)
+    public MydataPreviewResponseDto previewMydata(UUID userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        List<DummyMydata> dummyList = dummyMydataRepository.findByEmail(user.getEmail());
+
+        if (dummyList.isEmpty()) {
+            throw new IllegalStateException("연동 가능한 계좌 데이터가 없습니다: " + user.getEmail());
+        }
+
+        List<MydataPreviewResponseDto.MydataItem> items = dummyList.stream()
+                .map(d -> MydataPreviewResponseDto.MydataItem.builder()
+                        .assetNumber(d.getAssetNumber())
+                        .institution(d.getInstitution())
+                        .assetType(d.getAssetType().name())
+                        .accountName(d.getAccountName())
+                        .accountPurpose(d.getAccountPurpose())
+                        .balance(d.getBalance())
+                        .bankType(d.getBankType().name())
+                        .isSalary(d.getIsSalary())
+                        .build())
+                .toList();
+
+        return MydataPreviewResponseDto.builder()
+                .accounts(items)
+                .totalCount(items.size())
+                .build();
+    }
+
+    // 2. 선택 연동
+    @Transactional
+    public AssetListResponseDto syncAssets(UUID userId, AssetSyncRequestDto request) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        // 기존 계좌 soft delete
+        assetRepository.findByUserIdAndDeletedAtIsNull(userId).forEach(Assets::delete);
+
+        // 이메일 기준 더미 계좌 전체 조회
+        List<DummyMydata> dummyList = dummyMydataRepository.findByEmail(user.getEmail());
+
+        if (dummyList.isEmpty()) {
+            throw new IllegalStateException("연동 가능한 계좌 데이터가 없습니다: " + user.getEmail());
+        }
+
+        // 선택한 계좌번호로 필터링
+        // selectedAssetNumbers가 null이거나 비어있으면 전체 연동
+        List<DummyMydata> selectedList;
+        if (request == null
+                || request.getSelectedAssetNumbers() == null
+                || request.getSelectedAssetNumbers().isEmpty()) {
+            selectedList = dummyList;  // 전체 연동
+        } else {
+            selectedList = dummyList.stream()
+                    .filter(d -> request.getSelectedAssetNumbers()
+                            .contains(d.getAssetNumber()))
+                    .toList();
+
+            if (selectedList.isEmpty()) {
+                throw new IllegalArgumentException("선택한 계좌를 찾을 수 없습니다.");
+            }
+        }
+
+        // assets 저장 (is_salary = false 초기화)
+        List<Assets> newAssets = selectedList.stream()
+                .map(d -> Assets.builder()
+                        .user(user)
+                        .institution(d.getInstitution())
+                        .assetType(d.getAssetType())
+                        .accountName(d.getAccountName())
+                        .accountPurpose(d.getAccountPurpose())
+                        .assetNumber(d.getAssetNumber())
+                        .balance(d.getBalance())
+                        .isSalary(false)          // sync 시 전부 false
+                        .bankType(d.getBankType())
+                        .syncedAt(LocalDateTime.now())
+                        .build())
+                .toList();
+
+        assetRepository.saveAll(newAssets);
+
+        log.info("[AssetService] 마이데이터 연동 완료 — email: {}, 전체: {}개 중 {}개 선택",
+                user.getEmail(), dummyList.size(), newAssets.size());
+
+        return toListResponse(newAssets);
+    }
+
     // POST /assets/sync
     // 더미 계좌 연동 (마이데이터 대체)
     @Transactional

@@ -22,17 +22,31 @@ public class AssetController {
 
     private final AssetService assetService;
 
-    // POST /api/v1/assets/sync
-    @Operation(summary = "마이데이터 자산 연동 (더미 데이터 생성)",
-            description = "사용자의 금융 계좌 정보를 연동합니다. (현재는 마이데이터 API 연동 전이므로, 호출 시 자동으로 5개의 목적별 더미 계좌를 생성하거나 동기화합니다.)")
-    @PostMapping("/sync")
-    public ResponseEntity<ResponseDTO<AssetListResponseDto>> syncAssets(
+    @Operation(
+            summary = "마이데이터 계좌 목록 미리보기",
+            description = "연동 가능한 계좌 전체 목록을 반환합니다. 저장은 하지 않습니다."
+    )
+    @GetMapping("/mydata/preview")
+    public ResponseEntity<ResponseDTO<MydataPreviewResponseDto>> previewMydata(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        AssetListResponseDto data = assetService.syncAssets(userDetails.getUserId());
+        return ResponseEntity.ok(ResponseDTO.success(200, "마이데이터 계좌 목록 조회 성공",
+                assetService.previewMydata(userDetails.getUserId())));
+    }
 
-        return ResponseEntity.ok(
-                ResponseDTO.success(200, "계좌 연동 성공", data));
+
+    // POST /api/v1/assets/sync
+    @Operation(
+            summary = "마이데이터 선택 연동",
+            description = "선택한 assetNumber 목록의 계좌만 연동합니다. 빈 리스트 전달 시 전체 연동."
+    )
+    @PostMapping("/sync")
+    public ResponseEntity<ResponseDTO<AssetListResponseDto>> syncAssets(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody(required = false) AssetSyncRequestDto request) {
+
+        return ResponseEntity.ok(ResponseDTO.success(200, "마이데이터 연동 성공",
+                assetService.syncAssets(userDetails.getUserId(), request)));
     }
 
     // GET /api/v1/assets
