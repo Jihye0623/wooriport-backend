@@ -1,4 +1,4 @@
-package com.wooriport.core_api.base.dto;
+package com.wooriport.core_api.base.dto.Notification;
 import com.wooriport.core_api.domain.Notifications;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

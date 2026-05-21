@@ -28,10 +28,16 @@ public class TransferPlans extends SoftDeleteEntity {
     @JoinColumn(name = "asset_id", nullable = false)
     private Assets asset;
 
-    // SPENDING(소비) / EMERGENCY(비상금) / TARGET(목적) / SAVING(저축)
+    // 자산 유형
+    // STOCK    주식
+    // BOND     채권
+    // CASH     현금/예금
+    // IRP      개인형 퇴직연금
+    // EMERGENCY 비상금
+    // FIXED    고정비 (생활비 등)
     @Enumerated(EnumType.STRING)
-    @Column(name = "purpose", nullable = false, length = 20)
-    private TransferPurpose purpose;
+    @Column(name = "asset_type", nullable = false, length = 20)
+    private Portfolios.AssetType assetType;
 
     // AI가 제안한 이번 달 이체 금액
     @Column(name = "planned_amount", nullable = false)
@@ -70,10 +76,6 @@ public class TransferPlans extends SoftDeleteEntity {
     public void updatePlannedAmount(Long amount) {
         this.plannedAmount = amount;
         this.isConfirmed = false; // 금액 변경 시 재확인 필요
-    }
-
-    public enum TransferPurpose {
-        SPENDING, EMERGENCY, TARGET, SAVING
     }
 
     public enum TransferScope {

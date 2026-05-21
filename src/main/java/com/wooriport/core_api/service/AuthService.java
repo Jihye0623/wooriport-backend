@@ -3,25 +3,23 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.Auth.AuthDto;
 import com.wooriport.core_api.config.security.JwtTokenProvider;
 import com.wooriport.core_api.domain.Users;
-import com.wooriport.core_api.repository.UsersRepository;
+import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UsersRepository usersRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
     public void signup(AuthDto.SignupRequest request) {
-        if (usersRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 가입된 이메일입니다.");
         }
 
@@ -32,12 +30,12 @@ public class AuthService {
                 .phone(request.getPhone())
                 .build();
 
-        usersRepository.save(newUser);
+        userRepository.save(newUser);
     }
 
     @Transactional(readOnly = true)
     public AuthDto.TokenResponse login(AuthDto.LoginRequest request) {
-        Users user = usersRepository.findByEmail(request.getEmail())
+        Users user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
 
         if (user.getStatus() == Users.UserStatus.WITHDRAWN) {

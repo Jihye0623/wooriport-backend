@@ -42,8 +42,16 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 
 	// Swagger UI 및 OpenAPI 3.0
-// 스프링 부트 3.4 ~ 3.5 버전에 호환되는 최신 버전!
+	// 스프링 부트 3.4 ~ 3.5 버전에 호환되는 최신 버전!
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
+
+	// 카프카 연동을 위한 필수 라이브러리
+	implementation 'org.springframework.kafka:spring-kafka'
+	// Redis 연동 (나중에 카드-유저 매핑을 매우 빠르게 조회하기 위함)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	implementation 'org.springframework.boot:spring-boot-starter-batch'
+
 }
 
 tasks.named('test') {

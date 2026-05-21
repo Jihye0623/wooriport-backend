@@ -4,11 +4,12 @@ import com.wooriport.core_api.base.dto.transfer.TransferPlanCreateRequestDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanUpdateRequestDto;
 import com.wooriport.core_api.domain.Assets;
+import com.wooriport.core_api.domain.Portfolios;
 import com.wooriport.core_api.domain.TransferPlans;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.TransferPlanRepository;
-import com.wooriport.core_api.repository.UsersRepository;
+import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +24,7 @@ public class TransferPlanService {
 
     private final TransferPlanRepository transferPlanRepository;
     private final AssetRepository assetRepository;
-    private final UsersRepository userRepository;
+    private final UserRepository userRepository;
 
     // ──────────────────────────────────────
     // GET /transfer-plans
@@ -57,7 +58,7 @@ public class TransferPlanService {
                     TransferPlans.builder()
                             .user(user)
                             .asset(asset)
-                            .purpose(TransferPlans.TransferPurpose.valueOf(item.getPurpose()))
+                            .assetType(Portfolios.AssetType.valueOf(item.getAssetType()))
                             .plannedAmount(item.getPlannedAmount())
                             .isConfirmed(false)
                             .scheduledDate(request.getScheduledDate())
@@ -107,27 +108,18 @@ public class TransferPlanService {
                 .sum();
 
         List<TransferPlanListResponseDto.PlanItem> items = plans.stream()
-                .map(p -> {
-                    // 비율(%) 계산 로직 추가 (0으로 나누기 방지)
-                    double calculatedRatio = 0.0;
-                    if (totalAmount > 0) {
-                        calculatedRatio = (double) p.getPlannedAmount() / totalAmount * 100.0;
-                    }
-
-                    return TransferPlanListResponseDto.PlanItem.builder()
-                            .id(p.getId())
-                            .assetId(p.getAsset().getId())
-                            .institution(p.getAsset().getInstitution())
-                            .purpose(p.getPurpose().name())
-                            .plannedAmount(p.getPlannedAmount())
-                            .ratio(Math.round(calculatedRatio * 10.0) / 10.0) // ✅ 소수점 첫째 자리까지 반올림 (예: 15.4)
-                            .isConfirmed(p.getIsConfirmed())
-                            .transferScope(p.getTransferScope().name())
-                            .scheduledDate(p.getScheduledDate())
-                            .year(p.getYear())
-                            .month(p.getMonth())
-                            .build();
-                })
+                .map(p -> TransferPlanListResponseDto.PlanItem.builder()
+                        .id(p.getId())
+                        .assetId(p.getAsset().getId())
+                        .institution(p.getAsset().getInstitution())
+                        .assetType(p.getAssetType().name())
+                        .plannedAmount(p.getPlannedAmount())
+                        .isConfirmed(p.getIsConfirmed())
+                        .transferScope(p.getTransferScope().name())
+                        .scheduledDate(p.getScheduledDate())
+                        .year(p.getYear())
+                        .month(p.getMonth())
+                        .build())
                 .collect(Collectors.toList());
 
         return TransferPlanListResponseDto.builder()

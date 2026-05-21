@@ -25,18 +25,31 @@ public class Assets extends SoftDeleteEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
+    // 금융 기관명
     @Column(name = "institution", nullable = false, length = 100)
     private String institution;
 
-    // BANK / CARD / STOCK
+    @Column(name = "asset_number", length = 50)
+    private String assetNumber;
+
+    // "입출금 통장", "파킹 통장", "적금", "신용카드", "체크카드",
+    // "채권", "예적금", "증권 계좌", "CMA" 등 자유값
+    // VARCHAR(50)으로 확장
     @Enumerated(EnumType.STRING)
-    @Column(name = "asset_type", nullable = false, length = 20)
+    @Column(name = "asset_type", nullable = false, length = 50)
     private AssetType assetType;
 
-    // SALARY(급여) / SPENDING(소비) / EMERGENCY(비상금) / TARGET(목적)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "account_purpose", length = 20)
-    private AccountPurpose accountPurpose;
+    // 카드명 또는 계좌 상품명 (신규 추가)
+    // ex) "삼성 iD VISA", "현대카드 M", "우리 WON 파킹통장"
+    @Column(name = "account_name", length = 100)
+    private String accountName;
+
+    @Column(name = "account_purpose", length = 100)
+    private String accountPurpose;  // "생활비", "비상금", "여행 적금" 등 자유값
+
+    @Column(name = "is_salary", nullable = false)
+    @Builder.Default
+    private Boolean isSalary = false;  // 급여 통장 여부
 
     // 마지막 동기화 시점의 잔액
     @Column(name = "balance", nullable = false)
@@ -57,8 +70,16 @@ public class Assets extends SoftDeleteEntity {
         this.syncedAt = LocalDateTime.now();
     }
 
-    public void updateAccountPurpose(AccountPurpose accountPurpose) {
+    public void updateAccountPurpose(String accountPurpose) {
         this.accountPurpose = accountPurpose;
+    }
+
+    public void markAsSalary() {
+        this.isSalary = true;
+    }
+
+    public void unmarkAsSalary() {
+        this.isSalary = false;
     }
 
     public boolean isWooriBank() {
@@ -66,11 +87,16 @@ public class Assets extends SoftDeleteEntity {
     }
 
     public enum AssetType {
-        BANK, CARD, STOCK
-    }
-
-    public enum AccountPurpose {
-        SALARY, SPENDING, EMERGENCY, TARGET
+        CHECKING,       // 입출금 통장
+        PARKING,        // 파킹 통장
+        SAVINGS,        // 적금
+        CREDIT_CARD,    // 신용카드
+        DEBIT_CARD,     // 체크카드
+        BOND,           // 채권
+        DEPOSIT,        // 예금
+        STOCK,          // 증권 계좌
+        CMA,             // CMA
+        IRP
     }
 
     public enum BankType {

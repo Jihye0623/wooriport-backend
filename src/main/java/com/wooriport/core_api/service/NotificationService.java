@@ -1,6 +1,6 @@
 package com.wooriport.core_api.service;
 
-import com.wooriport.core_api.base.dto.NotificationDto;
+import com.wooriport.core_api.base.dto.Notification.NotificationDto;
 import com.wooriport.core_api.domain.Notifications;
 import com.wooriport.core_api.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;

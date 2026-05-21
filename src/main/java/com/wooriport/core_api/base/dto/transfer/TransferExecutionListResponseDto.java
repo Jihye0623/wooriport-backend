@@ -19,7 +19,7 @@ public class TransferExecutionListResponseDto {
         private UUID id;
         private String fromInstitution;
         private String toInstitution;
-        private String purpose;
+        private String assetType;
         private Long amount;
         private String status;          // PENDING / COMPLETED / FAILED
         private LocalDateTime executedAt;

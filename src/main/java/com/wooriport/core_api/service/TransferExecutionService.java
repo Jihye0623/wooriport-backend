@@ -45,7 +45,7 @@ public class TransferExecutionService {
                         .id(e.getId())
                         .fromInstitution(e.getFromAsset().getInstitution())
                         .toInstitution(e.getToAsset().getInstitution())
-                        .purpose(e.getPlan().getPurpose().name())
+                        .assetType(e.getPlan().getAssetType().name())
                         .amount(e.getAmount())
                         .status(e.getStatus().name())
                         .executedAt(e.getExecutedAt())
@@ -80,8 +80,9 @@ public class TransferExecutionService {
         }
 
         // 2. 급여 통장 조회
+
         Assets salaryAsset = assetRepository
-                .findByUserIdAndAccountPurpose(userId, Assets.AccountPurpose.SALARY)
+                .findByUserIdAndIsSalaryTrue(userId)
                 .orElseThrow(() -> new IllegalStateException("급여 통장이 설정되지 않았습니다."));
 
         // 3. 잔액 검증

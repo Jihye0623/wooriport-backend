@@ -19,7 +19,7 @@ public class TransferPlanCreateRequestDto {
     @Getter
     public static class PlanItem {
         private UUID assetId;         // 대상 계좌 UUID
-        private String purpose;       // SPENDING / EMERGENCY / TARGET / SAVING
+        private String assetType;       // SPENDING / EMERGENCY / TARGET / SAVING
         private Long plannedAmount;   // 이체 금액
         private String transferScope; // PARTITION / PARKING / FOREX
     }

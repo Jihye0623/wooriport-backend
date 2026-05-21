@@ -1,6 +1,6 @@
 package com.wooriport.core_api.controller;
 
-import com.wooriport.core_api.base.dto.NotificationDto;
+import com.wooriport.core_api.base.dto.Notification.NotificationDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.config.security.CustomUserDetails;
 import com.wooriport.core_api.service.NotificationService;
