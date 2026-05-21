@@ -12,7 +12,8 @@ import java.util.UUID;
 @Builder
 public class TransferPlanListResponseDto {
     private List<PlanItem> plans;
-    private Long totalAmount;  // 총 이체 금액
+    private Long totalAmount;
+    private Long salaryAmount;  // 총 이체 금액
 
     @Getter
     @Builder
@@ -22,6 +23,7 @@ public class TransferPlanListResponseDto {
         private String institution;   // 금융사명
         private String assetType;       // SPENDING / EMERGENCY / TARGET / SAVING
         private Long plannedAmount;
+        private Double ratio;          // 전체 대비 비율(%)
         private Boolean isConfirmed;
         private String transferScope;
         private int scheduledDate;

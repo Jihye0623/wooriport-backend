@@ -61,4 +61,22 @@ public interface TransferPlanRepository extends JpaRepository<TransferPlans, UUI
             @Param("userId") UUID userId,
             @Param("year") int year,
             @Param("month") int month);
+
+    // 자동이체 Batch — 오늘이 이체일인 사용자 계획
+    @Query("""
+        SELECT t FROM TransferPlans t
+        WHERE t.user.id = :userId
+          AND t.year = :year
+          AND t.month = :month
+          AND t.isConfirmed = true
+          AND t.deletedAt IS NULL
+        """)
+    List<TransferPlans> findConfirmedPlans(
+            @Param("userId") UUID userId,
+            @Param("year") int year,
+            @Param("month") int month);
+
+    // TransferPlanRepository.java에 추가
+    void deleteByUserIdAndYearAndMonthAndIsConfirmedFalse(
+            UUID userId, int year, int month);
 }

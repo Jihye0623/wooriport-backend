@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transactions, UUID> {
@@ -75,4 +76,21 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
     ORDER BY t.transactionAt DESC
     """)
     List<Transactions> findSalaryTransactionsByUserId(@Param("userId") UUID userId);
+    // 가장 최근 급여 트랜잭션 1건 (RebalancingTasklet, generate에서 사용)
+    @Query("""
+        SELECT t FROM Transactions t
+        WHERE t.user.id = :userId
+          AND t.amount > 0
+          AND (
+              t.senderName LIKE '%급여%'
+              OR t.senderName LIKE '%월급%'
+              OR t.senderName LIKE '%임금%'
+              OR t.senderName LIKE '%salary%'
+          )
+        ORDER BY t.transactionAt DESC
+        LIMIT 1
+        """)
+    Optional<Transactions> findLatestSalaryTransaction(@Param("userId") UUID userId);
+
+
 }
