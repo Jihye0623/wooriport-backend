@@ -39,22 +39,4 @@ public class TransferExecutionController {
                 ResponseDTO.success(200, "이체 실행 내역 조회 성공", data));
     }
 
-    /**
-     * POST /api/v1/transfer-executions/execute?year=2025&month=5
-     * 실제 이체 실행 (is_confirmed = TRUE 인 계획만)
-     * → @Transactional: 출금·입금·이력 저장 한 번에 처리
-     */
-    @Operation(summary = "수동 이체 실행", description = "해당 연/월의 이체 계획 중 사용자가 확정한(is_confirmed = TRUE) 내역에 대해 실제 출금 및 입금 트랜잭션을 수행합니다.")
-    @PostMapping("/execute")
-    public ResponseEntity<ResponseDTO<TransferExecutionResponseDto>> execute(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam int year,
-            @RequestParam int month) {
-
-        TransferExecutionResponseDto data = transferExecutionService.execute(
-                userDetails.getUserId(), year, month);
-
-        return ResponseEntity.ok(
-                ResponseDTO.success(200, "이체 실행 완료", data));
-    }
 }
