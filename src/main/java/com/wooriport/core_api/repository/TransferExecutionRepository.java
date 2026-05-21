@@ -21,4 +21,12 @@ public interface TransferExecutionRepository extends JpaRepository<TransferExecu
             @Param("userId") UUID userId,
             @Param("year") int year,
             @Param("month") int month);
+
+    // 이체 이력 전체 조회 (최신순)
+    @Query("""
+        SELECT e FROM TransferExecutions e
+        WHERE e.user.id = :userId
+        ORDER BY e.createdAt DESC
+        """)
+    List<TransferExecutions> findByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 }

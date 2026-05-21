@@ -3,7 +3,7 @@ package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.asset.ScheduledDateRequestDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
-import com.wooriport.core_api.base.dto.transfer.TransferPlanCreateRequestDto;
+import com.wooriport.core_api.base.dto.transfer.TransferExecuteResultDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanUpdateRequestDto;
 import com.wooriport.core_api.config.security.CustomUserDetails;
@@ -29,6 +29,23 @@ public class TransferPlanController {
     private final TransferPlanService transferPlanService;
     private final AssetService assetService;
 
+    @Operation(
+            summary = "급여 기반 이체 계획 자동 생성",
+            description = """
+        최근 급여 트랜잭션 금액을 기준으로
+        portfolios 비율에 따라 이체 계획을 자동 생성하고
+        사용자에게 알림을 발송합니다.
+        """
+    )
+    @PostMapping("/generate")
+    public ResponseEntity<ResponseDTO<TransferPlanListResponseDto>> generatePlans(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResponseDTO.success(201, "이체 계획 생성 및 알림 발송 완료",
+                        transferPlanService.generateFromSalary(userDetails.getUserId())));
+    }
+
     /**
      * GET /api/v1/transfer-plans?year=2025&month=5
      * 특정 연/월의 이체 계획 목록 조회
@@ -45,23 +62,6 @@ public class TransferPlanController {
 
         return ResponseEntity.ok(
                 ResponseDTO.success(200, "이체 계획 목록 조회 성공", data));
-    }
-
-    /**
-     * POST /api/v1/transfer-plans
-     * 월 이체 계획 생성 (비율 합산 100% 검증)
-     */
-    @Operation(summary = "월 이체 계획 일괄 생성", description = "초기 온보딩 또는 새 목표 추가 시, 비율 합산 100% 검증을 거쳐 월 이체 계획들을 일괄 생성합니다.")
-    @PostMapping
-    public ResponseEntity<ResponseDTO<TransferPlanListResponseDto>> createTransferPlans(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestBody TransferPlanCreateRequestDto request) {
-
-        TransferPlanListResponseDto data = transferPlanService.createTransferPlans(
-                userDetails.getUserId(), request);
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ResponseDTO.success(201, "이체 계획 생성 성공", data));
     }
 
     /**
@@ -85,17 +85,18 @@ public class TransferPlanController {
      * POST /api/v1/transfer-plans/confirm-all?year=2025&month=5
      * 이체 계획 전체 확인 (is_confirmed = TRUE)
      */
-    @Operation(summary = "이체 계획 전체 일괄 확정", description = "지정된 연/월의 모든 이체 계획을 확정(is_confirmed = TRUE) 처리합니다. 이 처리가 완료되어야 실제 스케줄러가 이체를 실행할 수 있습니다.")
+    @Operation(
+            summary = "이체 계획 확인 및 즉시 실행",
+            description = "이체 계획을 확인하고 즉시 실행합니다."
+    )
     @PostMapping("/confirm-all")
-    public ResponseEntity<ResponseDTO<Void>> confirmAll(
+    public ResponseEntity<ResponseDTO<TransferExecuteResultDto>> confirmAndExecute(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam int year,
             @RequestParam int month) {
 
-        transferPlanService.confirmAll(userDetails.getUserId(), year, month);
-
-        return ResponseEntity.ok(
-                ResponseDTO.success(200, "이체 계획 확인 완료", null));
+        return ResponseEntity.ok(ResponseDTO.success(200, "이체 실행 완료",
+                transferPlanService.confirmAndExecute(userDetails.getUserId(), year, month)));
     }
 
     @Operation(summary = "자동이체 실행일(월급날) 설정",

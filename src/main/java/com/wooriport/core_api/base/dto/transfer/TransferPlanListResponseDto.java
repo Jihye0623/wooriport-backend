@@ -12,7 +12,8 @@ import java.util.UUID;
 @Builder
 public class TransferPlanListResponseDto {
     private List<PlanItem> plans;
-    private Long totalAmount;  // 총 이체 금액
+    private Long totalAmount;
+    private Long salaryAmount;  // 총 이체 금액
 
     @Getter
     @Builder

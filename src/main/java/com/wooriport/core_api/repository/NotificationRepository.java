@@ -18,4 +18,12 @@ public interface NotificationRepository extends JpaRepository<Notifications, UUI
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Notifications n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
     void markAllAsReadByUserId(@Param("userId") UUID userId);
+
+    // 안읽은 알림 전체 (전체 읽음 처리용)
+    @Query("""
+        SELECT n FROM Notifications n
+        WHERE n.user.id = :userId
+          AND n.isRead = false
+        """)
+    List<Notifications> findUnreadByUserId(@Param("userId") UUID userId);
 }
