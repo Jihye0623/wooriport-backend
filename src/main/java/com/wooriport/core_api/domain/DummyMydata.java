@@ -25,7 +25,7 @@ public class DummyMydata {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "asset_type", nullable = false, length = 50)
-    private Assets.AssetType assetType;
+    private Assets.AccountType assetType;
 
     @Column(name = "account_name", length = 100)
     private String accountName;

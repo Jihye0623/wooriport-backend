@@ -1,5 +1,6 @@
 package com.wooriport.core_api.domain;
 
+import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.domain.common.SoftDeleteEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,16 +29,9 @@ public class TransferPlans extends SoftDeleteEntity {
     @JoinColumn(name = "asset_id", nullable = false)
     private Assets asset;
 
-    // 자산 유형
-    // STOCK    주식
-    // BOND     채권
-    // CASH     현금/예금
-    // IRP      개인형 퇴직연금
-    // EMERGENCY 비상금
-    // FIXED    고정비 (생활비 등)
     @Enumerated(EnumType.STRING)
-    @Column(name = "asset_type", nullable = false, length = 20)
-    private Portfolios.AssetType assetType;
+    @Column(name = "asset_type")
+    private AssetCategory assetType;
 
     // AI가 제안한 이번 달 이체 금액
     @Column(name = "planned_amount", nullable = false)

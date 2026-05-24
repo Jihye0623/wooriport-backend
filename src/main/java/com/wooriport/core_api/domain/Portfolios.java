@@ -1,5 +1,6 @@
 package com.wooriport.core_api.domain;
 
+import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.domain.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,8 +32,8 @@ public class Portfolios extends BaseEntity {
     // EMERGENCY 비상금
     // FIXED    고정비 (생활비 등)
     @Enumerated(EnumType.STRING)
-    @Column(name = "asset_type", nullable = false, length = 20)
-    private AssetType assetType;
+    @Column(name = "asset_type")
+    private AssetCategory assetType;
 
     // 월급 대비 비율 (%)
     @Column(name = "asset_amount", nullable = false)
@@ -60,12 +61,4 @@ public class Portfolios extends BaseEntity {
         return this.asset != null;
     }
 
-    public enum AssetType {
-        STOCK,      // 주식
-        BOND,       // 채권
-        CASH,       // 현금/예금
-        IRP,        // 개인형 퇴직연금
-        EMERGENCY,  // 비상금
-        FIXED       // 고정비
-    }
 }

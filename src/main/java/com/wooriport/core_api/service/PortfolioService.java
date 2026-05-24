@@ -3,6 +3,7 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioListResponseDto;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioUpdateRequestDto;
 import com.wooriport.core_api.domain.Portfolios;
+import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.PortfolioRepository;
 import com.wooriport.core_api.repository.TransactionRepository;
@@ -63,8 +64,7 @@ public class PortfolioService {
 
                     return Portfolios.builder()
                             .user(userRepository.getReferenceById(userId))
-                            .assetType(Portfolios.AssetType.valueOf(item.getAssetType()))
-                            .assetAmount(item.getAssetAmount())
+                            .assetType(AssetCategory.valueOf(item.getAssetType())) .assetAmount(item.getAssetAmount())
                             .asset(asset)
                             .build();
                 })
