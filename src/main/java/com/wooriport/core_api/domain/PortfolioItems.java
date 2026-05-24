@@ -66,6 +66,6 @@ public class PortfolioItems extends BaseEntity {
     }
 
     public enum ProductType {
-        SAVING, DEPOSIT, STOCK, BOND
+        DEPOSIT, STOCK, BOND
     }
 }
