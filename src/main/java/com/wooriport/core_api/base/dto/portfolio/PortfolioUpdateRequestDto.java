@@ -16,7 +16,7 @@ public class PortfolioUpdateRequestDto {
         @NotNull
         private String assetType;   // STOCK / BOND / CASH / IRP / EMERGENCY / FIXED
         @NotNull
-        private Integer assetRatio; // 월급 대비 비율 (%)
+        private Long assetAmount; // 이체 금액
         private UUID assetId;       // 연동 계좌 (null 허용)
     }
 }
