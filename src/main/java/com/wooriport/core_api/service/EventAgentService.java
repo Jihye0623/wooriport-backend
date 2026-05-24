@@ -24,7 +24,7 @@ public class EventAgentService {
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
     private final EventRepository eventRepository;
-    private final EventPortfoliosRepository eventPortfoliosRepository;
+    private final PortfolioItemRepository portfolioItemRepository;
     private final SpendingBudgetRepository spendingBudgetRepository;
 
     private final WebClient webClient;
@@ -188,12 +188,12 @@ public class EventAgentService {
         Event savedGoal = eventRepository.save(goal);
 
         // 2. goals_portfolios 저장 (비율만 저장, 계좌 연동은 nullable)
-        List<EventPortfolios> portfolios = List.of(
+        List<PortfolioItems> portfolios = List.of(
                 buildPortfolio(savedGoal, "STOCK", req.getStockRatio(), req.getStockAssetId()),
                 buildPortfolio(savedGoal, "BOND",  req.getBondRatio(),  req.getBondAssetId()),
                 buildPortfolio(savedGoal, "DEPOSIT", req.getCashRatio(), req.getDepositAssetId())
         );
-        eventPortfoliosRepository.saveAll(portfolios);
+        portfolioItemRepository.saveAll(portfolios);
 
         // 3. spending_budgets 저장 (STEP 4 예산)
         if (req.getBudgets() != null) {
@@ -213,15 +213,15 @@ public class EventAgentService {
         }
     }
 
-    private EventPortfolios buildPortfolio(Event goal, String type,
-                                           Integer ratio, UUID assetId) {
+    private PortfolioItems buildPortfolio(Event goal, String type,
+                                          Integer ratio, UUID assetId) {
         Assets asset = (assetId != null)
                 ? assetRepository.findById(assetId).orElse(null)
                 : null;
 
-        return EventPortfolios.builder()
+        return PortfolioItems.builder()
                 .event(goal)
-                .productType(EventPortfolios.ProductType.valueOf(type))
+                .productType(PortfolioItems.ProductType.valueOf(type))
                 .productRatio(ratio)
                 .asset(asset)
                 .build();

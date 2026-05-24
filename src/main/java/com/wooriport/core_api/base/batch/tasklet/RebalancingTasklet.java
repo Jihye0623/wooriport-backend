@@ -79,7 +79,7 @@ public class RebalancingTasklet implements Tasklet {
                         continue;
                     }
 
-                    Long amount = totalBalance * portfolio.getAssetRatio() / 100;
+                    Long amount = totalBalance * portfolio.getAssetAmount() / 100;
 
                     if (amount <= 0) continue;
 

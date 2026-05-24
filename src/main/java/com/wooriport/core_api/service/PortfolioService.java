@@ -1,6 +1,5 @@
 package com.wooriport.core_api.service;
 
-
 import com.wooriport.core_api.base.dto.portfolio.PortfolioListResponseDto;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioUpdateRequestDto;
 import com.wooriport.core_api.domain.Portfolios;
@@ -50,16 +49,6 @@ public class PortfolioService {
     @Transactional
     public PortfolioListResponseDto updatePortfolios(UUID userId, PortfolioUpdateRequestDto request) {
 
-        // 비율 합계 검증
-        int totalRatio = request.getPortfolios().stream()
-                .mapToInt(PortfolioUpdateRequestDto.PortfolioItem::getAssetRatio)
-                .sum();
-
-        if (totalRatio != 100) {
-            throw new IllegalArgumentException(
-                    "비율 합계가 100이어야 합니다. 현재: " + totalRatio);
-        }
-
         // 기존 삭제 후 재생성
         portfolioRepository.deleteByUserId(userId);
 
@@ -75,7 +64,7 @@ public class PortfolioService {
                     return Portfolios.builder()
                             .user(userRepository.getReferenceById(userId))
                             .assetType(Portfolios.AssetType.valueOf(item.getAssetType()))
-                            .assetRatio(item.getAssetRatio())
+                            .assetAmount(item.getAssetAmount())
                             .asset(asset)
                             .build();
                 })
@@ -97,18 +86,16 @@ public class PortfolioService {
     // 공통 변환
     // ──────────────────────────────────────
     private PortfolioListResponseDto toResponse(List<Portfolios> portfolios, Long salaryAmount) {
-        int totalRatio = portfolios.stream()
-                .mapToInt(Portfolios::getAssetRatio)
+
+        Long totalAmount = portfolios.stream()
+                .mapToLong(Portfolios::getAssetAmount)
                 .sum();
 
         List<PortfolioListResponseDto.PortfolioItem> items = portfolios.stream()
                 .map(p -> PortfolioListResponseDto.PortfolioItem.builder()
                         .id(p.getId())
                         .assetType(p.getAssetType().name())
-                        .assetRatio(p.getAssetRatio())
-                        .amount(salaryAmount > 0
-                                ? salaryAmount * p.getAssetRatio() / 100
-                                : null)
+                        .assetAmount(p.getAssetAmount())
                         .isLinked(p.isLinked())
                         .institution(p.isLinked() ? p.getAsset().getInstitution() : null)
                         .assetNumber(p.isLinked() ? p.getAsset().getAssetNumber() : null)
@@ -118,8 +105,7 @@ public class PortfolioService {
 
         return PortfolioListResponseDto.builder()
                 .portfolios(items)
-                .totalRatio(totalRatio)
-                .salaryAmount(salaryAmount)
+                .totalAmount(totalAmount)
                 .build();
     }
 }

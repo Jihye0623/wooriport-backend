@@ -85,7 +85,7 @@ public class TransferPlanService {
                 .filter(p -> p.getAsset() != null)  // 계좌 연동된 것만
                 .filter(p -> !p.getAsset().getId().equals(user.getAutoTransferToAssetId())) // 우리은행 자기 자신 제외
                 .map(p -> {
-                    Long amount = monthlySalary * p.getAssetRatio() / 100;
+                    Long amount = monthlySalary * p.getAssetAmount() / 100;
                     return TransferPlans.builder()
                             .user(user)
                             .asset(p.getAsset())

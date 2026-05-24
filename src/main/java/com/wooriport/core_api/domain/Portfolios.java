@@ -35,8 +35,8 @@ public class Portfolios extends BaseEntity {
     private AssetType assetType;
 
     // 월급 대비 비율 (%)
-    @Column(name = "asset_ratio", nullable = false)
-    private Integer assetRatio;
+    @Column(name = "asset_amount", nullable = false)
+    private Long assetAmount;
 
     // 연동 계좌 (nullable — 미연동 허용)
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,8 +44,8 @@ public class Portfolios extends BaseEntity {
     private Assets asset;
 
     // 비즈니스 메서드
-    public void updateRatio(Integer ratio) {
-        this.assetRatio = ratio;
+    public void updateRatio(Long amount) {
+        this.assetAmount = amount;
     }
 
     public void linkAsset(Assets asset) {

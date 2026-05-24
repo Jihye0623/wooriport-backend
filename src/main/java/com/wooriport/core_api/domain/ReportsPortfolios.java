@@ -36,7 +36,7 @@ public class ReportsPortfolios extends BaseEntity {
     // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권) / IRP
     @Enumerated(EnumType.STRING)
     @Column(name = "product_type", length = 20)
-    private EventPortfolios.ProductType productType;
+    private PortfolioItems.ProductType productType;
 
     // 해당 시점 누적 달성 금액 (스냅샷)
     @Column(name = "current_amount")
