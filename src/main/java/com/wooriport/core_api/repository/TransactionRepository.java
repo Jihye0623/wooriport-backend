@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,5 +93,17 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
         """)
     Optional<Transactions> findLatestSalaryTransaction(@Param("userId") UUID userId);
 
+    @Query("""
+    SELECT t.category, COALESCE(SUM(ABS(t.amount)) / 3, 0) AS monthlyAvg
+    FROM Transactions t
+    WHERE t.user.id = :userId
+      AND t.amount < 0
+      AND t.transactionAt >= :threeMonthsAgo
+    GROUP BY t.category
+    ORDER BY monthlyAvg DESC
+    """)
+    List<Object[]> findCategoryExpenseAvg(
+            @Param("userId") UUID userId,
+            @Param("threeMonthsAgo") LocalDateTime threeMonthsAgo);
 
 }
