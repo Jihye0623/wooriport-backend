@@ -28,7 +28,7 @@ public class AssetService {
     private final DummyMydataRepository dummyMydataRepository;
 
     @Transactional(readOnly = true)
-    public MydataPreviewResponseDto previewMydata(UUID userId) {
+    public MydataPreviewResponseDto previewMydata(UUID userId, List<String> institutions) {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
@@ -39,6 +39,9 @@ public class AssetService {
         }
 
         List<MydataPreviewResponseDto.MydataItem> items = dummyList.stream()
+                .filter(d -> institutions == null
+                        || institutions.isEmpty()
+                        || institutions.contains(d.getInstitution()))  // ← 여기서 바로 필터
                 .map(d -> MydataPreviewResponseDto.MydataItem.builder()
                         .assetNumber(d.getAssetNumber())
                         .institution(d.getInstitution())

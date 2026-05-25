@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Asset", description = "자산(계좌) 연동 및 조회 관리 API")
@@ -28,10 +29,10 @@ public class AssetController {
     )
     @GetMapping("/mydata/preview")
     public ResponseEntity<ResponseDTO<MydataPreviewResponseDto>> previewMydata(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @AuthenticationPrincipal CustomUserDetails userDetails, @RequestParam(required = false) List<String> institutions) {
 
         return ResponseEntity.ok(ResponseDTO.success(200, "마이데이터 계좌 목록 조회 성공",
-                assetService.previewMydata(userDetails.getUserId())));
+                assetService.previewMydata(userDetails.getUserId(), institutions)));
     }
 
 
