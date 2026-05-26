@@ -42,4 +42,12 @@ public interface PortfolioItemRepository extends JpaRepository<PortfolioItems, U
 
     // 이벤트 포트폴리오 삭제 (수정 시 재생성)
     void deleteByUserIdAndEventId(UUID userId, UUID eventId);
+
+    // 대시보드: 사용자 전체 portfolio_items (asset fetch join 으로 자산 매칭용)
+    @Query("""
+        SELECT p FROM PortfolioItems p
+        LEFT JOIN FETCH p.asset
+        WHERE p.user.id = :userId
+        """)
+    List<PortfolioItems> findAllByUserIdWithAsset(@Param("userId") UUID userId);
 }

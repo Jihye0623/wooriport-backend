@@ -106,4 +106,19 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
             @Param("userId") UUID userId,
             @Param("threeMonthsAgo") LocalDateTime threeMonthsAgo);
 
+    // 대시보드: 이번 달 카테고리별 지출 합계 [category, sumAmount]
+    @Query("""
+        SELECT t.category, COALESCE(SUM(ABS(t.amount)), 0)
+        FROM Transactions t
+        WHERE t.user.id = :userId
+          AND t.amount < 0
+          AND EXTRACT(YEAR FROM t.transactionAt) = :year
+          AND EXTRACT(MONTH FROM t.transactionAt) = :month
+        GROUP BY t.category
+        """)
+    List<Object[]> sumExpenseGroupByCategory(
+            @Param("userId") UUID userId,
+            @Param("year") int year,
+            @Param("month") int month);
+
 }
