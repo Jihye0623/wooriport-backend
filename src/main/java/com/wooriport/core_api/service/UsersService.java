@@ -144,7 +144,7 @@ public class UsersService {
         return PortiSurveyResultDto.builder()
                 .portiType(portiType)
                 .typeName(getTypeName(portiType))
-                .description(getDescription(portiType))
+                .description(user.getPortiComment())
                 .investScore(investScore)
                 .activeScore(activeScore)
                 .longTermScore(longTermScore)
@@ -165,14 +165,4 @@ public class UsersService {
         };
     }
 
-    private String getDescription(Users.PortiType type) {
-        return switch (type) {
-            case SWIMMING -> "안정적으로 모으고, 목표는 빠르게. 리스크는 낮추고 실행은 빠르게 하는 타입이에요.";
-            case ARCHERY  -> "안전하게, 그리고 멀리. 꾸준히 쌓아가는 장기 안정형 투자자예요.";
-            case JUDO     -> "균형 잡힌 감각으로 단기 목표를 빠르게 달성하는 타입이에요.";
-            case RHYTHMIC -> "균형과 지속성을 중시하는 장기 중립형이에요.";
-            case FENCING  -> "공격적이고 빠른 투자로 단기 수익을 노리는 타입이에요.";
-            case CYCLING  -> "높은 수익을 향해 장기적으로 달려가는 투자 지향형이에요.";
-        };
-    }
 }
