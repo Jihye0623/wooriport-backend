@@ -30,9 +30,6 @@ public class AgentService {
     @Value("${flask.ml-url}")
     private String flaskMlUrl;
 
-    private static final String BASE = "/portfolio";
-
-
     // 고정 지출 카테고리 (transaction.category 기준)
     private static final List<String> FIXED_CATEGORIES = List.of("통신", "공과금", "보험료");
 
@@ -178,10 +175,10 @@ public class AgentService {
         flaskBody.put("assets", assets.stream()
                 .map(a -> Map.of(
                         "asset_type", a.getAssetType().name(),
-                        "balance", a.getBalance()))
+                        "balance",  String.valueOf(a.getBalance())))
                 .collect(Collectors.toList()));
 
-        Map<String, Object> flaskResponse = callFlask("/profile", flaskBody);
+        Map<String, Object> flaskResponse = callFlask("/portfolio/profile", flaskBody);
 
         // ──────────────────────────────────────
         // STEP 7. 응답 조합
@@ -251,7 +248,7 @@ public class AgentService {
         List<Map<String, Object>> assetList = assets.stream()
                 .map(a -> Map.<String, Object>of(
                         "asset_type", a.getAssetType().name(),
-                        "balance", a.getBalance()))
+                        "balance",  String.valueOf(a.getBalance())))
                 .collect(Collectors.toList());
 
         // 5. porTI 코멘트 (유형 설명)
@@ -267,7 +264,7 @@ public class AgentService {
         flaskBody.put("fixed_expense", totalFixed);
         flaskBody.put("salary", salary);
 
-        Map<String, Object> flaskResponse = callFlask("/rebalance", flaskBody);
+        Map<String, Object> flaskResponse = callFlask("/portfolio/rebalance", flaskBody);
 
         // 7. Flask 응답 파싱
         Long investAmount = ((Number) flaskResponse.get("invest_amount")).longValue();
@@ -331,204 +328,111 @@ public class AgentService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        // 1. 현재 portfolios 조회 (기존 리밸런싱 계획)
+        // 1. 현재 portfolios 조회
         List<Portfolios> currentPortfolios = portfolioRepository.findByUserId(userId);
         if (currentPortfolios.isEmpty()) {
             throw new IllegalStateException("리밸런싱 설정을 먼저 완료해주세요.");
         }
 
-        // 2. 현재 투자 금액
-        Long currentInvestAmount = user.getMonthlyInvestAmount() != null
-                ? user.getMonthlyInvestAmount() : 0L;
-
-        // 3. 급여 조회
+        // 2. 급여 조회
         Transactions salaryTx = transactionRepository
                 .findLatestSalaryTransaction(userId)
                 .orElseThrow(() -> new IllegalStateException("급여 트랜잭션이 없습니다."));
         Long salary = salaryTx.getAmount();
 
-        // 4. 기존 포트폴리오 Map 생성 (assetId → amount, diff 계산용)
-        Map<UUID, Long> previousMap = currentPortfolios.stream()
-                .filter(p -> p.getAsset() != null)
+        // 3. 현재 투자 금액
+        Long currentInvestAmount = user.getMonthlyInvestAmount() != null
+                ? user.getMonthlyInvestAmount() : 0L;
+
+        // 4. diff 계산용 기존 포트폴리오 Map (assetNumber → amount)
+        List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
+        Map<String, Assets> assetNumberMap = assets.stream()
+                .filter(a -> a.getAssetNumber() != null)
+                .collect(Collectors.toMap(Assets::getAssetNumber, a -> a, (a, b) -> a));
+
+        Map<String, Long> previousAmountMap = currentPortfolios.stream()
+                .filter(p -> p.getAsset() != null && p.getAsset().getAssetNumber() != null)
                 .collect(Collectors.toMap(
-                        p -> p.getAsset().getId(),
+                        p -> p.getAsset().getAssetNumber(),
                         Portfolios::getAssetAmount,
                         (a, b) -> a));
 
-        // 5. FastAPI /input 호출
-        List<Map<String, Object>> currentPortfolioList = currentPortfolios.stream()
-                .filter(p -> p.getAsset() != null)
-                .map(p -> Map.<String, Object>of(
-                        "asset_id",    p.getAsset().getId().toString(),
-                        "institution", p.getAsset().getInstitution(),
-                        "amount",      p.getAssetAmount(),
-                        "nickname",    p.getAssetType().name()))
+        // 5. 현재 salary_rebalance 목록 생성
+        List<Map<String, Object>> currentSalaryRebalance = currentPortfolios.stream()
+                .filter(p -> p.getAsset() != null && p.getAsset().getAssetNumber() != null)
+                .map(p -> {
+                    long ratio = salary > 0
+                            ? p.getAssetAmount() * 100 / salary
+                            : 0L;
+                    return Map.<String, Object>of(
+                            "asset_number", p.getAsset().getAssetNumber(),
+                            "category",     p.getAssetType().name(),
+                            "ratio",        (int) ratio);
+                })
                 .collect(Collectors.toList());
 
+        // 6. Flask /rebalance 호출
+        // rebalance 객체로 묶어서 전달
+        Map<String, Object> rebalanceObj = new HashMap<>();
+        rebalanceObj.put("salary",            salary);
+        rebalanceObj.put("invest_amount",     currentInvestAmount);
+        rebalanceObj.put("salary_rebalance",  currentSalaryRebalance);
+
         Map<String, Object> flaskBody = new HashMap<>();
-        flaskBody.put("user_id",           userId.toString());
-        flaskBody.put("user_input",        request.getUserInput());
-        flaskBody.put("porti_type",        user.getPortiType().name());
-        flaskBody.put("porti_comment",     user.getPortiComment());
-        flaskBody.put("current_portfolio", currentPortfolioList);
-        flaskBody.put("invest_amount",     currentInvestAmount);
-        flaskBody.put("salary",            salary);
+        flaskBody.put("user_id",       userId.toString());
+        flaskBody.put("user_input",    request.getUserInput());
+        flaskBody.put("porti_type",    user.getPortiType().name());
+        flaskBody.put("porti_comment", user.getPortiComment());
+        flaskBody.put("rebalance",     rebalanceObj);
 
-        Map<String, Object> flaskResponse = callFlask("/input", flaskBody);
+        Map<String, Object> flaskResponse = callFlask("/event/rebalance", flaskBody);
 
-        // 6. Flask 응답 파싱
-        Long newInvestAmount = ((Number) flaskResponse.get("invest_amount")).longValue();
-        Long investAmountDiff = newInvestAmount - currentInvestAmount;
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> rawEvent = (Map<String, Object>) flaskResponse.get("event");
-
+        // 7. Flask 응답 파싱
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPlans =
-                (List<Map<String, Object>>) flaskResponse.get("rebalancing_plans");
+                (List<Map<String, Object>>) flaskResponse.get("salary_rebalance");
 
-        // 7. 계좌 조회 (매핑용)
-        List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
-        Map<String, Assets> assetIdMap = assets.stream()
-                .collect(Collectors.toMap(
-                        a -> a.getId().toString(), a -> a, (a, b) -> a));
+        String rebalanceComment = (String) flaskResponse.get("rebalance_comment");
 
-        // 8. diff 계산 후 plans 생성
+        // 8. asset_number 기반으로 diff 계산
         List<AgentInputResponseDto.RebalancingPlan> plans = rawPlans.stream()
                 .map(p -> {
-                    String assetIdStr = (String) p.get("asset_id");
-                    Long amount       = ((Number) p.get("amount")).longValue();
-                    String nickname   = (String) p.get("nickname");
+                    String assetNumber = (String) p.get("asset_number");
+                    String category    = (String) p.get("category");
+                    int    ratio       = ((Number) p.get("ratio")).intValue();
+                    Long   amount      = salary * ratio / 100;
 
-                    Assets matched = assetIdStr != null ? assetIdMap.get(assetIdStr) : null;
-                    UUID assetUUID = matched != null ? matched.getId() : null;
-                    Long previous  = assetUUID != null ? previousMap.getOrDefault(assetUUID, 0L) : 0L;
+                    Assets matched   = assetNumberMap.get(assetNumber);
+                    Long   previous  = previousAmountMap.getOrDefault(assetNumber, 0L);
 
                     return AgentInputResponseDto.RebalancingPlan.builder()
-                            .assetId(assetUUID)
+                            .assetId(matched != null ? matched.getId() : null)
                             .institution(matched != null ? matched.getInstitution() : null)
                             .assetType(matched != null ? matched.getAssetType().name() : null)
-                            .assetNumber(matched != null ? matched.getAssetNumber() : null)
+                            .assetNumber(assetNumber)
                             .amount(amount)
-                            .nickname(nickname)
+                            .nickname(category)
                             .previousAmount(previous)
                             .diff(amount - previous)
                             .build();
                 })
                 .collect(Collectors.toList());
 
-        Long totalPlanned = plans.stream()
-                .mapToLong(AgentInputResponseDto.RebalancingPlan::getAmount).sum();
-        Long remainingAmount = salary - newInvestAmount - totalPlanned;
+        // 9. 남은 금액 계산
+        Long totalPlanned     = plans.stream().mapToLong(AgentInputResponseDto.RebalancingPlan::getAmount).sum();
+        Long remainingAmount  = salary - currentInvestAmount - totalPlanned;
 
         log.info("[AgentService] input 완료 — userId: {}, 입력: {}", userId, request.getUserInput());
 
         return AgentInputResponseDto.builder()
-                .event(AgentInputResponseDto.EventSummary.builder()
-                        .title((String) rawEvent.get("title"))
-                        .targetAmount(toLong(rawEvent.get("target_amount")))
-                        .monthlySaving(toLong(rawEvent.get("monthly_saving")))
-                        .deadline((String) rawEvent.get("deadline"))
-                        .build())
-                .investAmount(newInvestAmount)
-                .investAmountDiff(investAmountDiff)
+                .rebalanceComment(rebalanceComment)   // ← Flask 코멘트 추가
+                .investAmount(currentInvestAmount)
+                .investAmountDiff(0L)                  // Flask가 invest_amount 변경값 안 줌
                 .rebalancingPlans(plans)
                 .remainingAmount(remainingAmount)
                 .build();
     }
 
-
-
-//    // ──────────────────────────────────────
-//    // [STEP 6] AI 심층 진단
-//    // ──────────────────────────────────────
-//    public AnalysisResponseDto analyzePortfolio(UUID userId, AnalysisRequestDto req) {
-//        Map<String, Object> body = Map.of(
-//                "user_id", userId.toString(),
-//                "portfolio_user", Map.of(
-//                        "cash_ratio",  req.getPortfolioUser().getCashRatio(),
-//                        "stock_ratio", req.getPortfolioUser().getStockRatio(),
-//                        "bond_ratio",  req.getPortfolioUser().getBondRatio()
-//                )
-//        );
-//
-//        Map<String, Object> res = callFlask(BASE + "/analysis", body);
-//
-//        return AnalysisResponseDto.builder()
-//                .analysisReport((String) res.get("analysis_report"))
-//                .summary((String) res.get("summary"))
-//                .build();
-//    }
-//
-//    @Transactional
-//    public void confirmGoal(UUID userId, GoalConfirmRequestDto req) {
-//
-//        Users user = userRepository.findById(userId)
-//                .orElseThrow(() -> new IllegalArgumentException("사용자 없음"));
-//
-//        Assets sourceAsset = assetRepository.findById(req.getSourceAssetId())
-//                .orElseThrow(() -> new IllegalArgumentException("계좌 없음"));
-//
-//        // 1. goals 저장
-//        Event goal = Event.builder()
-//                .user(user)
-//                .sourceAsset(sourceAsset)
-//                .eventType(Event.EventType.valueOf(req.getGoalType()))
-//                .title(req.getTitle())
-//                .targetAmount(req.getTargetAmount())
-//                .initialAmount(req.getInitialCapital())
-//                .currentAmount(req.getInitialCapital()) // 초기 자본금으로 시작
-//                .durationMonths(calculateMonths(req.getDeadline()))
-//                .deadline(req.getDeadline())
-//                .status(Event.EventStatus.ACTIVE)
-//                .build();
-//
-//        Event savedGoal = eventRepository.save(goal);
-//
-//        // 2. goals_portfolios 저장 (비율만 저장, 계좌 연동은 nullable)
-//        List<PortfolioItems> portfolios = List.of(
-//                buildPortfolio(savedGoal, "STOCK", req.getStockRatio(), req.getStockAssetId()),
-//                buildPortfolio(savedGoal, "BOND",  req.getBondRatio(),  req.getBondAssetId()),
-//                buildPortfolio(savedGoal, "DEPOSIT", req.getCashRatio(), req.getDepositAssetId())
-//        );
-//        portfolioItemRepository.saveAll(portfolios);
-//
-//        // 3. spending_budgets 저장 (STEP 4 예산)
-//        if (req.getBudgets() != null) {
-//            LocalDate now = LocalDate.now();
-//            List<SpendingBudgets> budgets = req.getBudgets().stream()
-//                    .map(b -> SpendingBudgets.builder()
-//                            .user(user)
-//                            .event(savedGoal)
-//                            .category(b.getCategory())
-//                            .amount(b.getAmount())
-//                            .ratio(b.getRatio())
-//                            .year(now.getYear())
-//                            .month(now.getMonthValue())
-//                            .build())
-//                    .toList();
-//            spendingBudgetRepository.saveAll(budgets);
-//        }
-//    }
-//
-//    private PortfolioItems buildPortfolio(Event goal, String type,
-//                                          Integer ratio, UUID assetId) {
-//        Assets asset = (assetId != null)
-//                ? assetRepository.findById(assetId).orElse(null)
-//                : null;
-//
-//        return PortfolioItems.builder()
-//                .event(goal)
-//                .productType(PortfolioItems.ProductType.valueOf(type))
-//                .productRatio(ratio)
-//                .asset(asset)
-//                .build();
-//    }
-//
-//    private Integer calculateMonths(LocalDate deadline) {
-//        LocalDate now = LocalDate.now();
-//        return (int) ChronoUnit.MONTHS.between(now, deadline);
-//    }
 
     // ──────────────────────────────────────
     // 공통 Flask 호출
