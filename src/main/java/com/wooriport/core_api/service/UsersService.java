@@ -2,6 +2,7 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.user.PortiSurveyRequestDto;
 import com.wooriport.core_api.base.dto.user.PortiSurveyResultDto;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ public class UsersService {
     @Transactional
     public void withdraw(UUID userId) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         if (user.getStatus() == Users.UserStatus.WITHDRAWN) {
             throw new IllegalArgumentException("이미 탈퇴 처리된 계정입니다.");

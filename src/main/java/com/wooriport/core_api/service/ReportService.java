@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wooriport.core_api.base.dto.report.ReportDetailResponseDto;
 import com.wooriport.core_api.base.dto.report.ReportListResponseDto;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Reports;
 import com.wooriport.core_api.domain.SpendingBudgets;
 import com.wooriport.core_api.domain.Users;
@@ -148,7 +149,7 @@ public class ReportService {
         }
 
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자 없음"));
+                .orElseThrow(() -> new UserNotFoundException());
 
         reportRepository.save(Reports.builder()
                 .user(user)

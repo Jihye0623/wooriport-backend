@@ -1,6 +1,8 @@
 package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.asset.*;
+import com.wooriport.core_api.base.exception.AssetNotFoundException;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.DummyMydata;
 import com.wooriport.core_api.domain.Users;
@@ -31,7 +33,7 @@ public class AssetService {
     @Transactional(readOnly = true)
     public MydataPreviewResponseDto previewMydata(UUID userId, List<String> institutions) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         List<DummyMydata> dummyList = dummyMydataRepository.findByEmail(user.getEmail());
 
@@ -65,7 +67,7 @@ public class AssetService {
     @Transactional
     public AssetListResponseDto syncAssets(UUID userId, AssetSyncRequestDto request) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // 기존 계좌 soft delete
         assetRepository.findByUserIdAndDeletedAtIsNull(userId).forEach(Assets::delete);
@@ -91,7 +93,7 @@ public class AssetService {
                     .toList();
 
             if (selectedList.isEmpty()) {
-                throw new IllegalArgumentException("선택한 계좌를 찾을 수 없습니다.");
+                throw new AssetNotFoundException();
             }
         }
 
@@ -124,7 +126,7 @@ public class AssetService {
     @Transactional
     public AssetListResponseDto syncAssets(UUID userId) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // 이미 연동된 계좌 있으면 그 더미데이터 삭제
         List<Assets> existing = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
@@ -168,7 +170,7 @@ public class AssetService {
     @Transactional(readOnly = true)
     public AssetListResponseDto getAssets(UUID userId) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
 
@@ -195,13 +197,13 @@ public class AssetService {
 
         // 선택한 계좌 급여통장 설정
         Assets asset = assetRepository.findByIdAndUserId(assetId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다."));
+                .orElseThrow(() -> new AssetNotFoundException());
 
         asset.markAsSalary();
 
         if (asset.isWooriBank()) {
             Users user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new UserNotFoundException());
             user.connectAutoTransfer(asset.getId());
         }
 
@@ -218,7 +220,7 @@ public class AssetService {
     @Transactional
     public void connectAutoTransfer(UUID userId, AutoTransferConnectRequestDto request) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         Assets fromAsset = assetRepository
                 .findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(userId)
@@ -244,7 +246,7 @@ public class AssetService {
     @Transactional(readOnly = true)
     public AutoTransferStatusResponseDto getAutoTransferStatus(UUID userId) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         Optional<Assets> salaryAsset = assetRepository
                 .findByUserIdAndIsSalaryTrue(userId);
@@ -281,7 +283,7 @@ public class AssetService {
     @Transactional
     public void updateScheduledDate(UUID userId, ScheduledDateRequestDto request) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         user.updateSalaryDate(request.getScheduledDate());
     }
