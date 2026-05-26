@@ -6,6 +6,7 @@ import com.wooriport.core_api.repository.NotificationRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.wooriport.core_api.domain.Users;
@@ -70,6 +71,7 @@ public class NotificationService {
     // 알림 저장 + SSE 실시간 전송
     // AlertConsumer, TransferPlanService 등에서 호출
     // ──────────────────────────────────────
+    @Async
     @Transactional
     public void saveAndSend(UUID userId, Notifications.NotificationType type,
                             String title, String content) {

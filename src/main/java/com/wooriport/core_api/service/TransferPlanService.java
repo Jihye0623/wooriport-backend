@@ -3,6 +3,9 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.transfer.TransferExecuteResultDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanUpdateRequestDto;
+import com.wooriport.core_api.base.exception.PortfolioNotSetException;
+import com.wooriport.core_api.base.exception.SalaryNotFoundException;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.*;
 import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.repository.*;
@@ -60,19 +63,19 @@ public class TransferPlanService {
     @Transactional
     public TransferPlanListResponseDto generateFromSalary(UUID userId) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // 1. 최근 급여 트랜잭션 조회
         Transactions salaryTx = transactionRepository
                 .findLatestSalaryTransaction(userId)
-                .orElseThrow(() -> new IllegalStateException("급여 트랜잭션이 없습니다."));
+                .orElseThrow(() -> new SalaryNotFoundException());
 
         Long monthlySalary = salaryTx.getAmount();
 
         // 2. portfolios 조회
         List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
         if (portfolios.isEmpty()) {
-            throw new IllegalStateException("포트폴리오가 설정되지 않았습니다.");
+            throw new PortfolioNotSetException();
         }
 
         int year  = LocalDate.now().getYear();
@@ -180,7 +183,7 @@ public class TransferPlanService {
     @Transactional
     public TransferExecuteResultDto confirmAndExecute(UUID userId, int year, int month) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // 1. 이번 달 이체 계획 조회
         List<TransferPlans> plans = transferPlanRepository

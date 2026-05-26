@@ -2,6 +2,9 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.agent.*;
 import com.wooriport.core_api.base.dto.user.PortiSurveyRequestDto;
+import com.wooriport.core_api.base.exception.PortfolioNotSetException;
+import com.wooriport.core_api.base.exception.SalaryNotFoundException;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.*;
 import com.wooriport.core_api.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +42,7 @@ public class AgentService {
     @Transactional
     public AgentProfileResponseDto generateProfile(UUID userId, AgentProfileRequestDto request) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // ──────────────────────────────────────
         // STEP 1. porTI 계산 및 저장
@@ -206,17 +209,17 @@ public class AgentService {
     @Transactional(readOnly = true)
     public AgentRecommendResponseDto recommend(UUID userId) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // 1. porTI 확인
         if (user.getPortiType() == null) {
-            throw new IllegalStateException("porTI 검사를 먼저 완료해주세요.");
+            throw new PortfolioNotSetException();
         }
 
         // 2. 최근 급여 조회
         Transactions salaryTx = transactionRepository
                 .findLatestSalaryTransaction(userId)
-                .orElseThrow(() -> new IllegalStateException("급여 트랜잭션이 없습니다."));
+                .orElseThrow(() -> new SalaryNotFoundException());
         Long salary = salaryTx.getAmount();
 
         // 3. 3개월 카테고리별 소비 집계
@@ -326,7 +329,7 @@ public class AgentService {
     @Transactional(readOnly = true)
     public AgentInputResponseDto input(UUID userId, AgentInputRequestDto request) {
         Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new UserNotFoundException());
 
         // 1. 현재 portfolios 조회
         List<Portfolios> currentPortfolios = portfolioRepository.findByUserId(userId);
@@ -337,7 +340,7 @@ public class AgentService {
         // 2. 급여 조회
         Transactions salaryTx = transactionRepository
                 .findLatestSalaryTransaction(userId)
-                .orElseThrow(() -> new IllegalStateException("급여 트랜잭션이 없습니다."));
+                .orElseThrow(() -> new SalaryNotFoundException());
         Long salary = salaryTx.getAmount();
 
         // 3. 현재 투자 금액
