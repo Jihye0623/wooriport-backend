@@ -46,6 +46,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/auth/**").permitAll() // 로그인, 회원가입 API는 모두 접근 허용
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN") // 관리자 전용
                         // swagger 인증 허가
+                        .requestMatchers("/api/v1/notifications/subscribe").authenticated()
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/v3/api-docs",
