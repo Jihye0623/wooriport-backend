@@ -39,4 +39,14 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
     Optional<Event> findByIdAndUserId(
             @Param("eventId") UUID eventId,
             @Param("userId") UUID userId);
+
+    // 대시보드에 활성화된 이벤트 전체 조회
+    @Query("""
+        SELECT e FROM Event e
+        WHERE e.user.id = :userId
+          AND e.isActiveDashboard = true
+          AND e.deletedAt IS NULL
+        ORDER BY e.deadline ASC
+        """)
+    List<Event> findActiveDashboardEvents(@Param("userId") UUID userId);
 }
