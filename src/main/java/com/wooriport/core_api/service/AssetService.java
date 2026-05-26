@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -289,18 +290,50 @@ public class AssetService {
     // 총 자산 요약
     @Transactional(readOnly = true)
     public AssetSummaryResponseDto getAssetSummary(UUID userId) {
-        Users user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 유저입니다."));
-
         List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
 
-        long totalBalance = assets.stream()
+        // 전체 합산
+        Long totalBalance = assets.stream()
                 .mapToLong(Assets::getBalance)
                 .sum();
 
+        // 예적금 총자산
+        Long savingsBalance = assets.stream()
+                .filter(a -> EnumSet.of(
+                                Assets.AccountType.SAVINGS,
+                                Assets.AccountType.DEPOSIT,
+                                Assets.AccountType.PARKING,
+                                Assets.AccountType.CMA,
+                                Assets.AccountType.IRP,
+                                Assets.AccountType.CHECKING)
+                        .contains(a.getAssetType()))
+                .mapToLong(Assets::getBalance)
+                .sum();
+
+        // 투자 총자산
+        Long investBalance = assets.stream()
+                .filter(a -> a.getAssetType() == Assets.AccountType.STOCK)
+                .mapToLong(Assets::getBalance)
+                .sum();
+
+        // 연결 계좌 수 (카드 제외)
+        int linkedAccountCount = (int) assets.stream()
+                .filter(a -> a.getAssetType() != Assets.AccountType.CREDIT_CARD
+                        && a.getAssetType() != Assets.AccountType.DEBIT_CARD)
+                .count();
+
+        // 연결 카드 수
+        int linkedCardCount = (int) assets.stream()
+                .filter(a -> a.getAssetType() == Assets.AccountType.CREDIT_CARD
+                        || a.getAssetType() == Assets.AccountType.DEBIT_CARD)
+                .count();
+
         return AssetSummaryResponseDto.builder()
                 .totalBalance(totalBalance)
-                .assetCount(assets.size())
+                .savingsBalance(savingsBalance)
+                .investBalance(investBalance)
+                .linkedAccountCount(linkedAccountCount)
+                .linkedCardCount(linkedCardCount)
                 .build();
     }
 
