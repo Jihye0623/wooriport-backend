@@ -1,17 +1,31 @@
 -- =========================================================
--- Dashboard API 테스트용 시드 데이터
+-- Dashboard API 테스트용 시드 데이터 (신규 스키마)
+--
+-- 변경점:
+--   * portfolio_items 대신 portfolio_flows / portfolio_flow_items 사용
+--   * event 테이블 컬럼이 엔티티(Event.java)에 맞춰 슬림해짐
+--   * product_category_rates (수익률 더미 테이블) 추가
 --
 -- 실행 흐름:
--- 1) Spring Boot 앱 실행 (ddl-auto=create 면 테이블 자동 생성)
+-- 1) Spring Boot 앱 실행 (ddl-auto=create)
 -- 2) Swagger 에서 회원가입:
 --      POST /api/v1/auth/signup
 --      { "email": "dashboard@wooriport.com",
 --        "password": "test1234!",
 --        "name": "서태형",
 --        "phone": "010-9999-0000" }
--- 3) 이 SQL 실행 → users 는 만들지 않고, 위에서 만든 user 의 id 를 찾아 자식 데이터를 연결합니다.
--- 4) Swagger 에서 로그인 후 /api/v1/dashboard 호출
+-- 3) 이 SQL 실행
+-- 4) Swagger 에서 로그인 후 GET /api/v1/dashboard
 -- =========================================================
+
+-- ─── 0. 사용자 무관 시드: 수익률 더미 (upsert) ────────────
+INSERT INTO product_category_rates (id, category_label, rate) VALUES
+    (gen_random_uuid(), 'ETF',    '+4%'),
+    (gen_random_uuid(), '현금성', '+2%'),
+    (gen_random_uuid(), '적금',   '-'),
+    (gen_random_uuid(), 'IRP',    '-')
+ON CONFLICT (category_label) DO UPDATE
+    SET rate = EXCLUDED.rate;
 
 DO $$
 DECLARE
@@ -24,26 +38,32 @@ BEGIN
     END IF;
 
     -- 1. 기존 시드 정리 (재실행 가능)
-    DELETE FROM transactions    WHERE user_id = v_user;
-    DELETE FROM portfolio_items WHERE user_id = v_user;
-    DELETE FROM portfolios      WHERE user_id = v_user;
-    DELETE FROM event           WHERE user_id = v_user;
-    DELETE FROM assets          WHERE user_id = v_user;
+    DELETE FROM transactions          WHERE user_id = v_user;
+    DELETE FROM portfolio_flow_items
+        WHERE flow_id IN (SELECT id FROM portfolio_flows WHERE user_id = v_user);
+    DELETE FROM portfolio_flows       WHERE user_id = v_user;
+    DELETE FROM portfolios            WHERE user_id = v_user;
+    DELETE FROM event                 WHERE user_id = v_user;
+    DELETE FROM assets                WHERE user_id = v_user;
 
     -- =========================================================
-    -- 2. ASSETS (5개)
-    --   a1: 급여통장 (CHECKING, WOORI, 생활비)
-    --   a2: 저축    (SAVINGS,  OTHER, 저축)
-    --   a3: 예금    (DEPOSIT,  OTHER, 비상금)
-    --   a4: 주식    (STOCK,    WOORI, 투자)
-    --   a5: 채권    (STOCK,    OTHER, 투자)
+    -- 2. ASSETS (7개)
+    --   a1: 급여통장   (CHECKING, WOORI, 생활비, isSalary)
+    --   a2: 파킹       (PARKING,  OTHER, 현금성)
+    --   a3: 적금       (SAVINGS,  OTHER, 적금)
+    --   a4: 증권 ETF   (STOCK,    WOORI, 투자) — TIGER 미국S&P500
+    --   a5: 퇴직연금   (IRP,      OTHER, 투자)
+    --   a6: 여행 모음통장 (PARKING, OTHER, event gathering)
+    --   a7: 증권 ETF#2 (STOCK,    OTHER, 투자) — KODEX 나스닥100
     -- =========================================================
     INSERT INTO assets (id, user_id, institution, asset_number, asset_type, account_name, account_purpose, is_salary, balance, synced_at, bank_type, created_at) VALUES
-    ('a1111111-1111-1111-1111-111111111111', v_user, '우리은행',   '1002-111-111111', 'CHECKING', '우리 WON 통장',  '생활비', TRUE,   6800000, NOW(), 'WOORI', NOW()),
-    ('a2222222-2222-2222-2222-222222222222', v_user, '카카오뱅크', '3333-22-222222',  'SAVINGS',  '카뱅 저축통장',  '저축',  FALSE,  5850000, NOW(), 'OTHER', NOW()),
-    ('a3333333-3333-3333-3333-333333333333', v_user, '토스뱅크',   '4444-33-333333',  'DEPOSIT',  '토스 예금',     '비상금', FALSE,        0, NOW(), 'OTHER', NOW()),
-    ('a4444444-4444-4444-4444-444444444444', v_user, '우리은행',   '5555-44-444444',  'STOCK',    '우리 ETF',      '투자',  FALSE, 12980000, NOW(), 'WOORI', NOW()),
-    ('a5555555-5555-5555-5555-555555555555', v_user, '신한은행',   '6666-55-555555',  'STOCK',    '신한 채권펀드', '투자',  FALSE,  6820000, NOW(), 'OTHER', NOW());
+    ('a1111111-1111-1111-1111-111111111111', v_user, '우리은행',   '1002-111-111111', 'CHECKING', '우리 WON 통장',     '생활비', TRUE,   6800000, NOW(), 'WOORI', NOW()),
+    ('a2222222-2222-2222-2222-222222222222', v_user, '토스뱅크',   '4444-22-222222',  'PARKING',  '토스 파킹통장',     '현금성', FALSE,  2000000, NOW(), 'OTHER', NOW()),
+    ('a3333333-3333-3333-3333-333333333333', v_user, '카카오뱅크', '3333-33-333333',  'SAVINGS',  '카뱅 26주 적금',    '적금',  FALSE,  1500000, NOW(), 'OTHER', NOW()),
+    ('a4444444-4444-4444-4444-444444444444', v_user, '우리은행',   '5555-44-444444',  'STOCK',    'TIGER 미국S&P500',  '투자',  FALSE,  4000000, NOW(), 'WOORI', NOW()),
+    ('a5555555-5555-5555-5555-555555555555', v_user, '미래에셋',   '6666-55-555555',  'IRP',      '미래에셋 IRP',      '투자',  FALSE,  1000000, NOW(), 'OTHER', NOW()),
+    ('a6666666-6666-6666-6666-666666666666', v_user, '토스뱅크',   '4444-66-666666',  'PARKING',  '여행 모음통장',     '여행', FALSE,   335000, NOW(), 'OTHER', NOW()),
+    ('a7777777-7777-7777-7777-777777777777', v_user, 'KB증권',     '7777-77-777777',  'STOCK',    'KODEX 나스닥100',   '투자',  FALSE,  1500000, NOW(), 'OTHER', NOW());
 
     -- =========================================================
     -- 3. PORTFOLIOS (월급 배분, monthlyIncome = 3,200,000)
@@ -51,51 +71,89 @@ BEGIN
     INSERT INTO portfolios (id, user_id, asset_type, asset_amount, asset_id, created_at) VALUES
     ('b1111111-1111-1111-1111-111111111111', v_user, 'FIXED',     1504000, 'a1111111-1111-1111-1111-111111111111', NOW()),
     ('b2222222-2222-2222-2222-222222222222', v_user, 'CASH',       608000, 'a2222222-2222-2222-2222-222222222222', NOW()),
-    ('b3333333-3333-3333-3333-333333333333', v_user, 'EMERGENCY',  320000, 'a3333333-3333-3333-3333-333333333333', NOW()),
+    ('b3333333-3333-3333-3333-333333333333', v_user, 'EMERGENCY',  320000, 'a6666666-6666-6666-6666-666666666666', NOW()),
     ('b4444444-4444-4444-4444-444444444444', v_user, 'STOCK',      768000, 'a4444444-4444-4444-4444-444444444444', NOW());
 
     -- =========================================================
-    -- 4. PORTFOLIO_ITEMS
-    --    cashBalance   = a2 + a3 = 5,850,000  (DEPOSIT 분류)
-    --    investmentBal = a4 + a5 = 19,800,000 (STOCK/BOND 분류)
+    -- 4. EVENT (목표) — current_amount, priority, is_active_dashboard 등은 엔티티에서 빠짐
+    --    target=500,000, deadline=2026-07-10
     -- =========================================================
-    INSERT INTO portfolio_items (id, event_id, user_id, product_id, product_type, product_ratio, asset_id, created_at) VALUES
-    ('c1111111-1111-1111-1111-111111111111', NULL, v_user, NULL, 'DEPOSIT', 100, 'a2222222-2222-2222-2222-222222222222', NOW()),
-    ('c2222222-2222-2222-2222-222222222222', NULL, v_user, NULL, 'DEPOSIT', 100, 'a3333333-3333-3333-3333-333333333333', NOW()),
-    ('c3333333-3333-3333-3333-333333333333', NULL, v_user, NULL, 'STOCK',   100, 'a4444444-4444-4444-4444-444444444444', NOW()),
-    ('c4444444-4444-4444-4444-444444444444', NULL, v_user, NULL, 'BOND',    100, 'a5555555-5555-5555-5555-555555555555', NOW());
-
-    -- =========================================================
-    -- 5. EVENT (is_active_dashboard = true)
-    -- =========================================================
-    INSERT INTO event (id, user_id, source_asset_id, event_type, title, target_amount, initial_amount, duration_months, current_amount, deadline, status, priority, is_active_dashboard, created_at) VALUES
+    INSERT INTO event (id, user_id, title, target_amount, deadline, status, summary_message, event_description, deleted_at, created_at) VALUES
     ('e1111111-1111-1111-1111-111111111111',
      v_user,
-     'a2222222-2222-2222-2222-222222222222',
-     'TRAVEL', '제주 여행', 500000, 100000, 2, 335000, DATE '2026-07-10',
-     'ACTIVE', 1, TRUE, NOW());
+     '제주 여행',
+     500000,
+     DATE '2026-07-10',
+     'ACTIVE',
+     '제주 여행을 위해 매달 모아요',
+     '제주 여행 가고 싶어',
+     NULL,
+     NOW());
 
     -- =========================================================
-    -- 6. TRANSACTIONS (이번 달, 총 2,450,000)
-    --    식비 1,029,000 / 문화여가 441,000 / 온라인쇼핑 514,500 / 교통 196,000 / 기타 269,500
+    -- 5. PORTFOLIO_FLOWS
+    --   f1 (기본 흐름): event_id=NULL,  gathering=a1, PUT 항목 4개
+    --   f2 (이벤트 흐름): event_id=e1, gathering=a6 (목표 진행도 = a6.balance / event.target_amount)
+    -- =========================================================
+    INSERT INTO portfolio_flows (id, user_id, event_id, title, priority, gathering_asset_id, is_active, started_at, created_at) VALUES
+    ('f1111111-1111-1111-1111-111111111111', v_user, NULL,
+     '기본 흐름', 1, 'a1111111-1111-1111-1111-111111111111', TRUE, NOW(), NOW()),
+    ('f2222222-2222-2222-2222-222222222222', v_user, 'e1111111-1111-1111-1111-111111111111',
+     '제주 여행 흐름', 2, 'a6666666-6666-6666-6666-666666666666', TRUE, NOW(), NOW());
+
+    -- =========================================================
+    -- 6. PORTFOLIO_FLOW_ITEMS (PUT만 — 대시보드 포트폴리오 카테고리 소스)
+    --    label 매핑: STOCK/BOND→ETF, DEPOSIT→현금성, SAVING→적금, IRP→IRP
+    --    amount = asset.balance × product_ratio / 100
+    -- =========================================================
+    INSERT INTO portfolio_flow_items (id, flow_id, step_type, asset_id, amount, product_id, product_type, product_ratio, created_at) VALUES
+    ('11111111-aaaa-1111-1111-111111111111', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a2222222-2222-2222-2222-222222222222', NULL, NULL, 'DEPOSIT', 100, NOW()),
+    ('22222222-aaaa-2222-2222-222222222222', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a3333333-3333-3333-3333-333333333333', NULL, NULL, 'SAVING',  100, NOW()),
+    ('33333333-aaaa-3333-3333-333333333333', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a4444444-4444-4444-4444-444444444444', NULL, NULL, 'STOCK',   100, NOW()),
+    ('44444444-aaaa-4444-4444-444444444444', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a5555555-5555-5555-5555-555555555555', NULL, NULL, 'IRP',     100, NOW()),
+    ('55555555-aaaa-5555-5555-555555555555', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a7777777-7777-7777-7777-777777777777', NULL, NULL, 'STOCK',   100, NOW());
+
+    -- =========================================================
+    -- 7. TRANSACTIONS (이번 달, 총 2,449,500)
+    --    카테고리별 가맹점 분산해서 sub 필드 ("배달의민족 외 N건") 가 의미있게 나오도록
     -- =========================================================
     INSERT INTO transactions (id, user_id, asset_id, amount, category, sender_name, transaction_at)
     SELECT gen_random_uuid(), v_user, 'a1111111-1111-1111-1111-111111111111', amount, category, sender, txn_at
     FROM (VALUES
-        (-1029000, '식비',       '배달의민족', date_trunc('month', NOW()) + INTERVAL '5 day'),
-        ( -441000, '문화/여가',  'CGV',        date_trunc('month', NOW()) + INTERVAL '6 day'),
-        ( -514500, '온라인쇼핑', '쿠팡',       date_trunc('month', NOW()) + INTERVAL '7 day'),
-        ( -196000, '교통',       '카카오T',    date_trunc('month', NOW()) + INTERVAL '8 day'),
-        ( -269500, '기타',       '편의점',     date_trunc('month', NOW()) + INTERVAL '9 day')
+        -- 식비 (1,029,000 / 5건 → "배달의민족 외 4건")
+        (-450000, '식비',       '배달의민족',  date_trunc('month', NOW()) + INTERVAL '1 day'),
+        (-180000, '식비',       '배달의민족',  date_trunc('month', NOW()) + INTERVAL '4 day'),
+        (-150000, '식비',       '스타벅스',    date_trunc('month', NOW()) + INTERVAL '8 day'),
+        (-149000, '식비',       '김밥천국',    date_trunc('month', NOW()) + INTERVAL '12 day'),
+        (-100000, '식비',       '쿠팡이츠',    date_trunc('month', NOW()) + INTERVAL '15 day'),
+        -- 문화/여가 (441,000 / 3건)
+        (-241000, '문화/여가',  'CGV',         date_trunc('month', NOW()) + INTERVAL '6 day'),
+        (-120000, '문화/여가',  '인터파크',    date_trunc('month', NOW()) + INTERVAL '11 day'),
+        (-80000,  '문화/여가',  'YES24',       date_trunc('month', NOW()) + INTERVAL '18 day'),
+        -- 온라인쇼핑 (514,500 / 4건)
+        (-260000, '온라인쇼핑', '쿠팡',        date_trunc('month', NOW()) + INTERVAL '2 day'),
+        (-150000, '온라인쇼핑', '쿠팡',        date_trunc('month', NOW()) + INTERVAL '9 day'),
+        (-65000,  '온라인쇼핑', '11번가',      date_trunc('month', NOW()) + INTERVAL '14 day'),
+        (-39500,  '온라인쇼핑', 'G마켓',       date_trunc('month', NOW()) + INTERVAL '20 day'),
+        -- 교통 (196,000 / 2건)
+        (-150000, '교통',       '카카오T',     date_trunc('month', NOW()) + INTERVAL '3 day'),
+        (-46000,  '교통',       '티머니',      date_trunc('month', NOW()) + INTERVAL '13 day'),
+        -- 기타 (269,500 / 3건)
+        (-150000, '기타',       'GS25',        date_trunc('month', NOW()) + INTERVAL '7 day'),
+        (-70000,  '기타',       'CU',          date_trunc('month', NOW()) + INTERVAL '16 day'),
+        (-49500,  '기타',       '올리브영',    date_trunc('month', NOW()) + INTERVAL '21 day')
     ) AS t(amount, category, sender, txn_at);
 END $$;
 
 -- =========================================================
--- 7. 확인
+-- 8. 확인
 -- =========================================================
-SELECT 'users'           AS table_name, COUNT(*) AS cnt FROM users           WHERE email   = 'dashboard@wooriport.com'
-UNION ALL SELECT 'assets',          COUNT(*) FROM assets          WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
-UNION ALL SELECT 'portfolios',      COUNT(*) FROM portfolios      WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
-UNION ALL SELECT 'portfolio_items', COUNT(*) FROM portfolio_items WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
-UNION ALL SELECT 'event',           COUNT(*) FROM event           WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
-UNION ALL SELECT 'transactions',    COUNT(*) FROM transactions    WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com');
+SELECT 'users'                AS table_name, COUNT(*) AS cnt FROM users                WHERE email   = 'dashboard@wooriport.com'
+UNION ALL SELECT 'assets',                    COUNT(*) FROM assets                    WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
+UNION ALL SELECT 'portfolios',                COUNT(*) FROM portfolios                WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
+UNION ALL SELECT 'portfolio_flows',           COUNT(*) FROM portfolio_flows           WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
+UNION ALL SELECT 'portfolio_flow_items',      COUNT(*) FROM portfolio_flow_items
+    WHERE flow_id IN (SELECT id FROM portfolio_flows WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com'))
+UNION ALL SELECT 'event',                     COUNT(*) FROM event                     WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
+UNION ALL SELECT 'transactions',              COUNT(*) FROM transactions              WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
+UNION ALL SELECT 'product_category_rates',    COUNT(*) FROM product_category_rates;

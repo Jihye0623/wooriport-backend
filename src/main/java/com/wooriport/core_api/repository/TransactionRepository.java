@@ -121,4 +121,17 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
             @Param("year") int year,
             @Param("month") int month);
 
+    // 대시보드 sub 필드용: 이번 달 지출 거래 (카테고리/가맹점 그룹핑은 서비스에서)
+    @Query("""
+        SELECT t FROM Transactions t
+        WHERE t.user.id = :userId
+          AND t.amount < 0
+          AND EXTRACT(YEAR FROM t.transactionAt) = :year
+          AND EXTRACT(MONTH FROM t.transactionAt) = :month
+        """)
+    List<Transactions> findMonthlyExpenses(
+            @Param("userId") UUID userId,
+            @Param("year") int year,
+            @Param("month") int month);
+
 }
