@@ -69,12 +69,12 @@ public class AlertConsumer {
             @SuppressWarnings("unchecked")
             Map<String, Object> event = objectMapper.readValue(message, Map.class);
 
-            String senderName = (String) event.get("sender_name");
+            String category = (String) event.get("category");
             Object amountObj  = event.get("amount");
             long   amount     = amountObj != null ? ((Number) amountObj).longValue() : 0L;
 
             // 급여 입금 감지
-            if (isSalary(senderName) && amount > 0) {
+            if (isSalary(category) && amount > 0) {
                 String assetNumber = (String) event.get("asset_number");
 
                 Assets asset = assetRepository.findByAssetNumber(assetNumber).orElse(null);
@@ -98,11 +98,11 @@ public class AlertConsumer {
         }
     }
 
-    private boolean isSalary(String senderName) {
-        if (senderName == null) return false;
-        return senderName.contains("급여")
-                || senderName.contains("월급")
-                || senderName.contains("임금")
-                || senderName.contains("salary");
+    private boolean isSalary(String category) {
+        if (category == null) return false;
+        return category.contains("급여")
+                || category.contains("월급")
+                || category.contains("임금")
+                || category.contains("salary");
     }
 }

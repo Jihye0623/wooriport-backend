@@ -45,11 +45,11 @@ public class Transactions {
 
     // 더미 스케줄러가 랜덤 배정: 식비, 교통, 쇼핑, 의료, 여가
     // 분류 후 업데이트 가능
+    // 월급 감지 시 "급여", "월급", 회사명 포함 여부 체크
     @Column(name = "category", length = 50)
     private String category;
 
     // 입금자명 또는 가맹점명
-    // 월급 감지 시 "급여", "월급", 회사명 포함 여부 체크
     @Column(name = "sender_name", length = 100)
     private String senderName;
 

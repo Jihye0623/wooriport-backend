@@ -25,7 +25,7 @@ public class TransactionController {
 
     @Operation(
             summary = "급여 입금 내역 조회",
-            description = "sender_name에 '급여', '월급', '임금', 'salary' 포함된 입금 내역을 최신순으로 반환합니다."
+            description = "category에 '급여', '월급', '임금', 'salary' 포함된 입금 내역을 최신순으로 반환합니다."
     )
     @GetMapping("/salary")
     public ResponseEntity<ResponseDTO<SalaryTransactionListResponseDto>> getSalaryTransactions(

@@ -19,6 +19,7 @@ public class SalaryTransactionListResponseDto {
         private UUID assetId;
         private String institution;   // 입금된 계좌 기관명
         private Long amount;          // 입금액 (양수)
+        private String category;
         private String senderName;    // 입금자명 ("(주)우리회사 급여")
         private String transactionAt; // 거래 시각
     }

@@ -126,7 +126,7 @@ public class DashboardService {
                         .id(e.getId())
                         .title(e.getTitle())
                         .targetAmount(e.getTargetAmount())
-                        .currentAmount(e.getCurrentAmount())
+                        // currentAmount 삭제했어요. 계산 로직 만든 다음 추가하시면 됩니다
                         .deadline(e.getDeadline())
                         .status(e.getStatus().name())
                         .build())

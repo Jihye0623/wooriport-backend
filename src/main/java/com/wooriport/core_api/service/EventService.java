@@ -26,14 +26,10 @@ public class EventService {
         List<EventListResponseDto.EventItem> items = events.stream()
                 .map(e -> EventListResponseDto.EventItem.builder()
                         .id(e.getId())
-                        .eventType(e.getEventType().name())
                         .title(e.getTitle())
                         .targetAmount(e.getTargetAmount())
-                        .currentAmount(e.getCurrentAmount())
-                        .achievementRate(e.getAchievementRate())
                         .deadline(e.getDeadline().toString())
                         .status(e.getStatus().name())
-                        .isActiveDashboard(e.getIsActiveDashboard())
                         .build())
                 .collect(Collectors.toList());
 
@@ -51,19 +47,12 @@ public class EventService {
 
         return EventDetailResponseDto.builder()
                 .id(event.getId())
-                .eventType(event.getEventType().name())
                 .title(event.getTitle())
                 .targetAmount(event.getTargetAmount())
-                .currentAmount(event.getCurrentAmount())
-                .initialAmount(event.getInitialAmount())
-                .achievementRate(event.getAchievementRate())
-                .durationMonths(event.getDurationMonths())
                 .deadline(event.getDeadline().toString())
                 .status(event.getStatus().name())
-                .isActiveDashboard(event.getIsActiveDashboard())
                 .summaryMessage(event.getSummaryMessage())
                 .eventDescription(event.getEventDescription())
-                .isShortTerm(event.isShortTerm())
                 .build();
     }
 }
