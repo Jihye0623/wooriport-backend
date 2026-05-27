@@ -178,6 +178,7 @@ public class AgentService {
         flaskBody.put("assets", assets.stream()
                 .map(a -> Map.of(
                         "asset_type", a.getAssetType().name(),
+                        "asset_number", a.getAssetNumber() != null ? a.getAssetNumber() : "",
                         "balance",  String.valueOf(a.getBalance())))
                 .collect(Collectors.toList()));
 
@@ -251,6 +252,7 @@ public class AgentService {
         List<Map<String, Object>> assetList = assets.stream()
                 .map(a -> Map.<String, Object>of(
                         "asset_type", a.getAssetType().name(),
+                        "asset_number", a.getAssetNumber() != null ? a.getAssetNumber() : "",
                         "balance",  String.valueOf(a.getBalance())))
                 .collect(Collectors.toList());
 

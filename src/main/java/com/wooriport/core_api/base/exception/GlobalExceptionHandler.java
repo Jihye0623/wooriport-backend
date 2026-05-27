@@ -4,6 +4,7 @@ import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,6 +31,14 @@ public class GlobalExceptionHandler {
         log.warn("[400] 잘못된 요청: {}", e.getMessage());
         return ResponseEntity.badRequest()
                 .body(ResponseDTO.fail(400, e.getMessage()));
+    }
+
+    // 400 — 요청 바디 파싱 실패 (잘못된 UUID 형식 등)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
+        log.warn("[400] 요청 파싱 실패: {}", e.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ResponseDTO.fail(400, "요청 형식이 올바르지 않습니다."));
     }
 
     // 404 — 리소스 없음

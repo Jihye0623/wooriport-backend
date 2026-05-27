@@ -192,8 +192,12 @@ public class TransferPlanService {
         }
 
         // 2. 우리은행 계좌 (출발 계좌)
+        UUID autoTransferAssetId = user.getAutoTransferToAssetId();
+        if (autoTransferAssetId == null) {
+            throw new IllegalStateException("자동이체 출발 계좌가 설정되지 않았습니다.");
+        }
         Assets wooriAsset = assetRepository
-                .findById(user.getAutoTransferToAssetId())
+                .findById(autoTransferAssetId)
                 .orElseThrow(() -> new IllegalStateException("우리은행 계좌가 없습니다."));
 
         int successCount = 0;

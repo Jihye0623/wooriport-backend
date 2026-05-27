@@ -47,7 +47,7 @@ public class AgentController {
         월급 리밸런싱 계획을 추천받아 반환합니다.
         """
     )
-    @PostMapping("/recommend")
+    @PostMapping("/rebalance")
     public ResponseEntity<ResponseDTO<AgentRecommendResponseDto>> recommend(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
