@@ -102,7 +102,6 @@ public class TransferPlanService {
                         .scheduledDate(user.getSalaryDate())
                         .year(year)
                         .month(month)
-                        .transferScope(TransferPlans.TransferScope.PARTITION)
                         .build())
                 .toList();
 
@@ -138,7 +137,6 @@ public class TransferPlanService {
                                 .scheduledDate(user.getSalaryDate())
                                 .year(year)
                                 .month(month)
-                                .transferScope(TransferPlans.TransferScope.PARTITION)
                                 .build();
                     })
                     .toList();
@@ -275,7 +273,6 @@ public class TransferPlanService {
                         .assetType(p.getAssetType().name())
                         .plannedAmount(p.getPlannedAmount())
                         .isConfirmed(p.getIsConfirmed())
-                        .transferScope(p.getTransferScope().name())
                         .scheduledDate(p.getScheduledDate())
                         .year(p.getYear())
                         .month(p.getMonth())
@@ -301,7 +298,6 @@ public class TransferPlanService {
                         .assetType(p.getAssetType().name())
                         .plannedAmount(p.getPlannedAmount())
                         .isConfirmed(p.getIsConfirmed())
-                        .transferScope(p.getTransferScope().name())
                         .scheduledDate(p.getScheduledDate())
                         .year(p.getYear())
                         .month(p.getMonth())

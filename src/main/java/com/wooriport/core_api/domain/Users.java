@@ -28,9 +28,6 @@ public class Users extends SoftDeleteEntity {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(name = "phone", length = 20)
-    private String phone;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
@@ -67,9 +64,8 @@ public class Users extends SoftDeleteEntity {
         this.portiType = portiType;
     }
 
-    public void updateProfile(String name, String phone) {
+    public void updateProfile(String name) {
         this.name = name;
-        this.phone = phone;
     }
 
     public void suspend() {
