@@ -18,7 +18,6 @@ public class GoalConfirmRequestDto {
     @NotNull private LocalDate deadline;
     @NotNull  private Long targetAmount;  // STEP 2 산정 금액
     @NotNull  private Long initialCapital; // STEP 3 초기 자본금
-    @NotNull  private UUID sourceAssetId;  // STEP 3 가져올 계좌
 
     // 포트폴리오 비율 (STEP 5 확정값)
     @NotNull private Integer stockRatio;

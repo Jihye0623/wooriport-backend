@@ -28,6 +28,7 @@ public class TransactionService {
                         .assetId(t.getAsset().getId())
                         .institution(t.getAsset().getInstitution())
                         .amount(t.getAmount())
+                        .category(t.getCategory())
                         .senderName(t.getSenderName())
                         .transactionAt(t.getTransactionAt().toString())
                         .build())

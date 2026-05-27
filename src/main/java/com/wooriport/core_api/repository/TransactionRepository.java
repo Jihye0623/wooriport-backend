@@ -69,10 +69,10 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
     WHERE t.user.id = :userId
       AND t.amount > 0
       AND (
-          t.senderName LIKE '%급여%'
-          OR t.senderName LIKE '%월급%'
-          OR t.senderName LIKE '%임금%'
-          OR t.senderName LIKE '%salary%'
+          t.category LIKE '%급여%'
+          OR t.category LIKE '%월급%'
+          OR t.category LIKE '%임금%'
+          OR t.category LIKE '%salary%'
       )
     ORDER BY t.transactionAt DESC
     """)
@@ -83,10 +83,10 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
         WHERE t.user.id = :userId
           AND t.amount > 0
           AND (
-              t.senderName LIKE '%급여%'
-              OR t.senderName LIKE '%월급%'
-              OR t.senderName LIKE '%임금%'
-              OR t.senderName LIKE '%salary%'
+              t.category LIKE '%급여%'
+              OR t.category LIKE '%월급%'
+              OR t.category LIKE '%임금%'
+              OR t.category LIKE '%salary%'
           )
         ORDER BY t.transactionAt DESC
         LIMIT 1

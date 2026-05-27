@@ -24,7 +24,6 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
     @Query("""
         SELECT e FROM Event e
         WHERE e.user.id = :userId
-          AND e.isActiveDashboard = true
           AND e.deletedAt IS NULL
         """)
     Optional<Event> findActiveByUserId(@Param("userId") UUID userId);
@@ -44,7 +43,6 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
     @Query("""
         SELECT e FROM Event e
         WHERE e.user.id = :userId
-          AND e.isActiveDashboard = true
           AND e.deletedAt IS NULL
         ORDER BY e.deadline ASC
         """)
