@@ -11,6 +11,7 @@ public class PortfolioListResponseDto {
 
     private List<PortfolioItem> portfolios;
     private Long totalAmount;       // 총 이체 금액
+    private Long monthlyInvestAmount;   // 투자할 돈 (users.monthly_invest_amount)
 
     @Getter
     @Builder

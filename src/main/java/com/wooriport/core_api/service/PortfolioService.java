@@ -3,6 +3,7 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioListResponseDto;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioUpdateRequestDto;
 import com.wooriport.core_api.domain.Portfolios;
+import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.PortfolioRepository;
@@ -41,7 +42,10 @@ public class PortfolioService {
                 .map(tx -> tx.getAmount())
                 .orElse(0L);
 
-        return toResponse(portfolios, salaryAmount);
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+
+        return toResponse(portfolios, salaryAmount, user.getMonthlyInvestAmount());
     }
 
     // ──────────────────────────────────────
@@ -49,6 +53,12 @@ public class PortfolioService {
     // ──────────────────────────────────────
     @Transactional
     public PortfolioListResponseDto updatePortfolios(UUID userId, PortfolioUpdateRequestDto request) {
+
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+
+        // 투자할 돈 저장
+        user.updateMonthlyInvestAmount(request.getMonthlyInvestAmount());
 
         // 기존 삭제 후 재생성
         portfolioRepository.deleteByUserId(userId);
@@ -63,7 +73,7 @@ public class PortfolioService {
                     }
 
                     return Portfolios.builder()
-                            .user(userRepository.getReferenceById(userId))
+                            .user(user)
                             .assetType(AssetCategory.valueOf(item.getAssetType())) .assetAmount(item.getAssetAmount())
                             .asset(asset)
                             .build();
@@ -77,15 +87,16 @@ public class PortfolioService {
                 .map(tx -> tx.getAmount())
                 .orElse(0L);
 
-        log.info("[PortfolioService] 포트폴리오 수정 완료 — userId: {}, {}개", userId, saved.size());
+        log.info("[PortfolioService] 포트폴리오 수정 완료 — userId: {}, {}개, monthlyInvestAmount: {}",
+                userId, saved.size(), user.getMonthlyInvestAmount());
 
-        return toResponse(saved, salaryAmount);
+        return toResponse(saved, salaryAmount, user.getMonthlyInvestAmount());
     }
 
     // ──────────────────────────────────────
     // 공통 변환
     // ──────────────────────────────────────
-    private PortfolioListResponseDto toResponse(List<Portfolios> portfolios, Long salaryAmount) {
+    private PortfolioListResponseDto toResponse(List<Portfolios> portfolios, Long salaryAmount, Long monthlyInvestAmount) {
 
         Long totalAmount = portfolios.stream()
                 .mapToLong(Portfolios::getAssetAmount)
@@ -106,6 +117,7 @@ public class PortfolioService {
         return PortfolioListResponseDto.builder()
                 .portfolios(items)
                 .totalAmount(totalAmount)
+                .monthlyInvestAmount(monthlyInvestAmount)
                 .build();
     }
 }
