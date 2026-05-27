@@ -25,7 +25,6 @@ public class TransferPlanListResponseDto {
         private Long plannedAmount;
         private Double ratio;          // 전체 대비 비율(%)
         private Boolean isConfirmed;
-        private String transferScope;
         private int scheduledDate;
         private int year;
         private int month;

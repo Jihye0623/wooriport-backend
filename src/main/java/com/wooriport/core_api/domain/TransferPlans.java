@@ -52,12 +52,6 @@ public class TransferPlans extends SoftDeleteEntity {
     @Column(name = "month", nullable = false)
     private Integer month;
 
-    // PARTITION(내부 파티션) / PARKING(외부 파킹) / FOREX(외환)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "transfer_scope", nullable = false, length = 20)
-    @Builder.Default
-    private TransferScope transferScope = TransferScope.PARTITION;
-
     // 비즈니스 메서드
     public void confirm() {
         this.isConfirmed = true;
@@ -70,9 +64,5 @@ public class TransferPlans extends SoftDeleteEntity {
     public void updatePlannedAmount(Long amount) {
         this.plannedAmount = amount;
         this.isConfirmed = false; // 금액 변경 시 재확인 필요
-    }
-
-    public enum TransferScope {
-        PARTITION, PARKING, FOREX
     }
 }

@@ -6,10 +6,8 @@ import com.wooriport.core_api.base.dto.report.ReportDetailResponseDto;
 import com.wooriport.core_api.base.dto.report.ReportListResponseDto;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Reports;
-import com.wooriport.core_api.domain.SpendingBudgets;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.ReportRepository;
-import com.wooriport.core_api.repository.SpendingBudgetRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +27,6 @@ import java.util.stream.Collectors;
 public class ReportService {
 
     private final ReportRepository reportRepository;
-    private final SpendingBudgetRepository spendingBudgetRepository;
     private final UserRepository userRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -78,28 +75,16 @@ public class ReportService {
         // [{"category": "식비", "value": 287000}, ...] → {"식비": 287000}
         Map<String, Long> actualMap = parseExpenseCategories(report.getExpenseCategories());
 
-        // spending_budgets 조회 → 카테고리별 예산
-        List<SpendingBudgets> budgets = spendingBudgetRepository
-                .findByUserIdAndYearAndMonth(userId, year, month);
-        Map<String, Long> budgetMap = budgets.stream()
-                .collect(Collectors.toMap(
-                        SpendingBudgets::getCategory,
-                        SpendingBudgets::getAmount,
-                        (a, b) -> a));
 
         // 실제 지출 기준으로 SpendingItem 생성 (예산 없는 카테고리도 포함)
         List<ReportDetailResponseDto.SpendingItem> spendingItems = actualMap.entrySet().stream()
                 .map(e -> {
                     String category = e.getKey();
                     Long actual     = e.getValue();
-                    Long budget     = budgetMap.getOrDefault(category, 0L);
-                    int ratio       = budget > 0 ? (int)(actual * 100 / budget) : 0;
 
                     return ReportDetailResponseDto.SpendingItem.builder()
                             .category(category)
                             .actual(actual)
-                            .budget(budget)
-                            .ratio(ratio)
                             .build();
                 })
                 .collect(Collectors.toList());
