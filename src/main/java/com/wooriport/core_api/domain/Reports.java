@@ -1,15 +1,17 @@
 package com.wooriport.core_api.domain;
-
 import com.wooriport.core_api.domain.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "reports")
+@Table(name = "reports",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_reports_user_year_month",
+                columnNames = {"user_id", "year", "month"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -31,6 +33,7 @@ public class Reports extends BaseEntity {
     @Column(name = "month", nullable = false)
     private Integer month;
 
+    // 수지 요약
     @Column(name = "total_income", nullable = false)
     @Builder.Default
     private Long totalIncome = 0L;
@@ -39,45 +42,74 @@ public class Reports extends BaseEntity {
     @Builder.Default
     private Long totalExpense = 0L;
 
-    // 잉여자금 = total_income - total_expense
     @Column(name = "surplus", nullable = false)
     @Builder.Default
     private Long surplus = 0L;
 
-    // monthly_change: "이번 달 주식 비중이 5% 증가했어요..."
-    @Column(name = "monthly_change", columnDefinition = "TEXT")
-    private String monthlyChange;
+    // 전달 대비 자산 변화
+    @Column(name = "prev_total_amount")
+    private Long prevTotalAmount;
 
-    // portfolios: {"stock_change": 5.2, "bond_change": -1.3, "cash_change": -3.9}
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "portfolios", columnDefinition = "jsonb")
-    private String portfolios;
+    @Column(name = "curr_total_amount")
+    private Long currTotalAmount;
 
-    // portfolio_comment: "전반적으로 안정적인 포트폴리오를 유지하고 있어요..."
+    @Column(name = "prev_savings_amount")
+    private Long prevSavingsAmount;
+
+    @Column(name = "curr_savings_amount")
+    private Long currSavingsAmount;
+
+    @Column(name = "prev_invest_amount")
+    private Long prevInvestAmount;
+
+    @Column(name = "curr_invest_amount")
+    private Long currInvestAmount;
+
+    // AI 생성 텍스트
     @Column(name = "portfolio_comment", columnDefinition = "TEXT")
     private String portfolioComment;
 
-    // ── 소비 패턴 ──────────────────────────────
-    // expense_categories: [{"category": "식비", "value": 287000}, ...]
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "expense_categories", columnDefinition = "jsonb")
-    private String expenseCategories;
+    @Column(name = "market_summary", columnDefinition = "TEXT")
+    private String marketSummary;
 
-    // expense_analysis: "식비 지출이 가장 높았어요.\n여가비가 전월 대비 15% 증가했어요."
-    @Column(name = "expense_analysis", columnDefinition = "TEXT")
-    private String expenseAnalysis;
-
-    // ── 다음달 가이드라인 ──────────────────────
-    // recommended_rebalance_ratio: {"stock_ratio": 50, "bond_ratio": 30, "cash_ratio": 20}
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "recommended_rebalance_ratio", columnDefinition = "jsonb")
-    private String recommendedRebalanceRatio;
-
-    // next_month_guideline: "다음 달엔 식비를 10% 줄이고..."
     @Column(name = "next_month_guideline", columnDefinition = "TEXT")
     private String nextMonthGuideline;
 
-    public void calculateSurplus() {
-        this.surplus = this.totalIncome - this.totalExpense;
+    // 카테고리별 소비 (양방향)
+    @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ReportCategoryExpenses> categoryExpenses = new ArrayList<>();
+
+    // AI 텍스트 업데이트 (Flask 응답 수신 시)
+    public void updateAiComments(String portfolioComment,
+                                 String marketSummary,
+                                 String nextMonthGuideline) {
+        this.portfolioComment   = portfolioComment;
+        this.marketSummary      = marketSummary;
+        this.nextMonthGuideline = nextMonthGuideline;
+    }
+
+    // 자산 변화 저장
+    public void updateAssetChanges(Long prevTotal,   Long currTotal,
+                                   Long prevSavings, Long currSavings,
+                                   Long prevInvest,  Long currInvest) {
+        this.prevTotalAmount   = prevTotal;
+        this.currTotalAmount   = currTotal;
+        this.prevSavingsAmount = prevSavings;
+        this.currSavingsAmount = currSavings;
+        this.prevInvestAmount  = prevInvest;
+        this.currInvestAmount  = currInvest;
+    }
+
+    // 총자산 변화율 (%)
+    public Double getTotalChangeRate() {
+        if (prevTotalAmount == null || prevTotalAmount == 0) return null;
+        return (double)(currTotalAmount - prevTotalAmount) / prevTotalAmount * 100;
+    }
+
+    // 투자 변화율 (%)
+    public Double getInvestChangeRate() {
+        if (prevInvestAmount == null || prevInvestAmount == 0) return null;
+        return (double)(currInvestAmount - prevInvestAmount) / prevInvestAmount * 100;
     }
 }

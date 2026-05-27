@@ -71,31 +71,6 @@ public class ReportService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         year + "년 " + month + "월 리포트가 없습니다."));
 
-        // expense_categories JSON → Map (카테고리별 실제 지출)
-        // [{"category": "식비", "value": 287000}, ...] → {"식비": 287000}
-        Map<String, Long> actualMap = parseExpenseCategories(report.getExpenseCategories());
-
-
-        // 실제 지출 기준으로 SpendingItem 생성 (예산 없는 카테고리도 포함)
-        List<ReportDetailResponseDto.SpendingItem> spendingItems = actualMap.entrySet().stream()
-                .map(e -> {
-                    String category = e.getKey();
-                    Long actual     = e.getValue();
-
-                    return ReportDetailResponseDto.SpendingItem.builder()
-                            .category(category)
-                            .actual(actual)
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        // portfolios JSON 파싱
-        ReportDetailResponseDto.PortfolioChange portfolioChange =
-                parsePortfolios(report.getPortfolios());
-
-        // recommendedRebalanceRatio JSON 파싱
-        ReportDetailResponseDto.RebalanceRatio rebalanceRatio =
-                parseRebalanceRatio(report.getRecommendedRebalanceRatio());
 
         return ReportDetailResponseDto.builder()
                 .id(report.getId())
@@ -104,12 +79,7 @@ public class ReportService {
                 .totalIncome(report.getTotalIncome())
                 .totalExpense(report.getTotalExpense())
                 .surplus(report.getSurplus())
-                .monthlyChange(report.getMonthlyChange())
-                .portfolios(portfolioChange)
                 .portfolioComment(report.getPortfolioComment())
-                .expenseCategories(spendingItems)
-                .expenseAnalysis(report.getExpenseAnalysis())
-                .recommendedRebalanceRatio(rebalanceRatio)
                 .nextMonthGuideline(report.getNextMonthGuideline())
                 .createdAt(report.getCreatedAt().toString())
                 .build();
@@ -143,12 +113,7 @@ public class ReportService {
                 .totalIncome(toLong(res.get("total_income")))
                 .totalExpense(toLong(res.get("total_expense")))
                 .surplus(toLong(res.get("surplus")))
-                .monthlyChange((String) res.get("monthly_change"))
-                .portfolios(toJson(res.get("portfolios")))
                 .portfolioComment((String) res.get("portfolio_comment"))
-                .expenseCategories(toJson(res.get("expense_categories")))
-                .expenseAnalysis((String) res.get("expense_analysis"))
-                .recommendedRebalanceRatio(toJson(res.get("recommended_rebalance_ratio")))
                 .nextMonthGuideline((String) res.get("next_month_guideline"))
                 .build());
 
