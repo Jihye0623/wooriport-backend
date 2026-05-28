@@ -57,8 +57,11 @@ public class PortfolioService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
 
-        // 투자할 돈 저장
+        // 투자할 돈 + 월급 저장
         user.updateMonthlyInvestAmount(request.getMonthlyInvestAmount());
+        if (request.getSalary() != null) {
+            user.updateSalary(request.getSalary());
+        }
 
         // 기존 삭제 후 재생성
         portfolioRepository.deleteByUserId(userId);

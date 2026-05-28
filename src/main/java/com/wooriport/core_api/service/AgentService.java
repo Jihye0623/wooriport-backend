@@ -221,11 +221,9 @@ public class AgentService {
             throw new PortfolioNotSetException();
         }
 
-        // 2. 최근 급여 조회
-        Transactions salaryTx = transactionRepository
-                .findLatestSalaryTransaction(userId)
-                .orElseThrow(() -> new SalaryNotFoundException());
-        Long salary = salaryTx.getAmount();
+        // 2. 급여 조회 (users.salary 우선)
+        Long salary = user.getSalary();
+        if (salary == null) throw new SalaryNotFoundException();
 
         // 3. 3개월 카테고리별 소비 집계
         LocalDateTime threeMonthsAgo = LocalDateTime.now().minusMonths(3);
@@ -363,11 +361,9 @@ public class AgentService {
             throw new IllegalStateException("리밸런싱 설정을 먼저 완료해주세요.");
         }
 
-        // 2. 급여 조회
-        Transactions salaryTx = transactionRepository
-                .findLatestSalaryTransaction(userId)
-                .orElseThrow(() -> new SalaryNotFoundException());
-        Long salary = salaryTx.getAmount();
+        // 2. 급여 조회 (users.salary 우선)
+        Long salary = user.getSalary();
+        if (salary == null) throw new SalaryNotFoundException();
 
         // 3. 현재 투자 금액
         Long currentInvestAmount = user.getMonthlyInvestAmount() != null

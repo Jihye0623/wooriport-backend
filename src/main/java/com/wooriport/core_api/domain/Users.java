@@ -47,8 +47,15 @@ public class Users extends SoftDeleteEntity {
     @Column(name = "monthly_invest_amount")
     private Long monthlyInvestAmount;
 
+    @Column(name = "salary")
+    private Long salary;
+
     public void updateMonthlyInvestAmount(Long amount) {
         this.monthlyInvestAmount = amount;
+    }
+
+    public void updateSalary(Long salary) {
+        this.salary = salary;
     }
 
     public void connectAutoTransfer(UUID toAssetId) {
