@@ -69,6 +69,19 @@ public class Assets extends SoftDeleteEntity {
         this.syncedAt = LocalDateTime.now();
     }
 
+    // 마이데이터 재연동 업서트: 동일 asset_number 행을 최신 값으로 갱신 + soft-delete 복원
+    public void restoreFromDummy(DummyMydata d) {
+        this.institution = d.getInstitution();
+        this.assetType = d.getAssetType();
+        this.accountName = d.getAccountName();
+        this.accountPurpose = d.getAccountPurpose();
+        this.balance = d.getBalance();
+        this.bankType = d.getBankType();
+        this.syncedAt = LocalDateTime.now();
+        this.isSalary = false;
+        restore();
+    }
+
     public void updateAccountPurpose(String accountPurpose) {
         this.accountPurpose = accountPurpose;
     }
