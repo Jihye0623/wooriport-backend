@@ -27,6 +27,9 @@ public class AgentService {
     private final TransactionRepository transactionRepository;
     private final UsersService usersService;
     private final PortfolioRepository portfolioRepository;
+    private final ProductRepository productRepository;
+    private final PortfolioFlowRepository portfolioFlowRepository;
+    private final PortfolioFlowItemRepository portfolioFlowItemRepository;
 
     private final WebClient webClient;
 
@@ -454,6 +457,164 @@ public class AgentService {
                 .remainingAmount(remainingAmount)
                 .build();
     }
+
+    // ──────────────────────────────────────
+    // POST /agent/prescriptions
+    // PrescriptionComplete 화면 진입 시 호출 — FastAPI /asset-portfolio 로
+    // AI 포트폴리오 생성 요청 후 portfolio_flows + items 저장
+    // ──────────────────────────────────────
+    @Transactional
+    public void generatePrescriptions(UUID userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
+        // 1. 보유 자산 — 카드 + 월급 리밸런싱에 이미 묶인 계좌 제외
+        List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
+
+        Set<UUID> rebalancedAssetIds = portfolioRepository.findByUserId(userId).stream()
+                .map(Portfolios::getAsset)
+                .filter(Objects::nonNull)
+                .map(Assets::getId)
+                .collect(Collectors.toSet());
+
+        List<Map<String, Object>> investAssets = assets.stream()
+                .filter(a -> a.getAssetType() != Assets.AccountType.CREDIT_CARD
+                          && a.getAssetType() != Assets.AccountType.DEBIT_CARD)
+                .filter(a -> !rebalancedAssetIds.contains(a.getId()))
+                .map(a -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("asset_type", a.getAssetType() != null ? a.getAssetType().name() : null);
+                    m.put("account_name", a.getAccountName());
+                    m.put("asset_id", a.getId().toString());
+                    m.put("balance", a.getBalance());
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        // 2. 활성 상품 카탈로그
+        List<Products> productList = productRepository.findAllActive();
+        List<Map<String, Object>> productsBody = productList.stream()
+                .map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("product_type", p.getProductType() != null ? p.getProductType().name() : null);
+                    m.put("institution", p.getInstitution());
+                    m.put("name", p.getName());
+                    m.put("interest_rate", p.getInterestRate());
+                    m.put("description", p.getDescription());
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        // 3. FastAPI /asset-portfolio 호출
+        Map<String, Object> flaskBody = new HashMap<>();
+        flaskBody.put("user_id", userId.toString());
+        flaskBody.put("invest_amount",
+                user.getMonthlyInvestAmount() != null ? user.getMonthlyInvestAmount() : 0L);
+        flaskBody.put("porti_type", user.getPortiType() != null ? user.getPortiType().name() : null);
+        flaskBody.put("porti_comment", user.getPortiComment());
+        flaskBody.put("invest_assets", investAssets);
+        flaskBody.put("products", productsBody);
+
+        Map<String, Object> flaskResponse = callFlask("/asset-portfolio", flaskBody);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> investmentFlows =
+                (List<Map<String, Object>>) flaskResponse.get("investment_flows");
+        if (investmentFlows == null) {
+            throw new IllegalStateException("FastAPI 응답에 investment_flows 가 없습니다.");
+        }
+
+        // 4. 기존 기본(event=null) 흐름 삭제 — 새 처방전으로 교체
+        List<PortfolioFlows> existing = portfolioFlowRepository.findAllByUserIdWithDetails(userId).stream()
+                .filter(f -> f.getEvent() == null)
+                .collect(Collectors.toList());
+        if (!existing.isEmpty()) {
+            portfolioFlowRepository.deleteAll(existing);
+            portfolioFlowRepository.flush();
+        }
+
+        // 5. 매핑 테이블
+        Map<UUID, Assets> assetById = assets.stream()
+                .collect(Collectors.toMap(Assets::getId, a -> a, (a, b) -> a));
+        Map<String, Products> productByName = productList.stream()
+                .collect(Collectors.toMap(Products::getName, p -> p, (a, b) -> a));
+
+        // 6. 각 investment_flow 저장
+        for (Map<String, Object> flowDto : investmentFlows) {
+            String title = (String) flowDto.get("title");
+            String summary = (String) flowDto.get("summary");
+            String term = mapTerm((String) flowDto.get("term"));
+
+            Assets gatheringAsset = null;
+            Object gatheringObj = flowDto.get("gathering_account");
+            if (gatheringObj != null) {
+                gatheringAsset = assetById.get(UUID.fromString(gatheringObj.toString()));
+            }
+
+            PortfolioFlows flow = PortfolioFlows.builder()
+                    .user(user)
+                    .event(null)
+                    .title(title != null ? title : "")
+                    .summary(summary)
+                    .term(term)
+                    .gatheringAsset(gatheringAsset)
+                    .isActive(false)
+                    .build();
+            PortfolioFlows savedFlow = portfolioFlowRepository.save(flow);
+
+            // funding_sources → PULL
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> fundingSources =
+                    (List<Map<String, Object>>) flowDto.get("funding_sources");
+            if (fundingSources != null) {
+                for (Map<String, Object> src : fundingSources) {
+                    Object assetIdObj = src.get("asset_id");
+                    if (assetIdObj == null) continue;
+                    UUID srcAssetId = UUID.fromString(assetIdObj.toString());
+                    Long amount = src.get("amount") != null
+                            ? ((Number) src.get("amount")).longValue() : 0L;
+                    portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
+                            .flow(savedFlow)
+                            .stepType(PortfolioFlowItems.StepType.PULL)
+                            .asset(assetById.get(srcAssetId))
+                            .amount(amount)
+                            .build());
+                }
+            }
+
+            // portfolio → PUT
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> portfolio =
+                    (List<Map<String, Object>>) flowDto.get("portfolio");
+            if (portfolio != null) {
+                for (Map<String, Object> p : portfolio) {
+                    String name = (String) p.get("name");
+                    Integer ratio = p.get("ratio") != null
+                            ? ((Number) p.get("ratio")).intValue() : 0;
+                    Products product = name != null ? productByName.get(name) : null;
+                    portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
+                            .flow(savedFlow)
+                            .stepType(PortfolioFlowItems.StepType.PUT)
+                            .product(product)
+                            .productType(product != null && product.getProductType() != null
+                                    ? product.getProductType().name() : null)
+                            .productRatio(ratio)
+                            .build());
+                }
+            }
+        }
+
+        log.info("[AgentService] AI 포트폴리오 생성 완료 — userId={}, flows={}",
+                userId, investmentFlows.size());
+    }
+
+    private static String mapTerm(String fullTerm) {
+        if (fullTerm == null) return "중";
+        if (fullTerm.startsWith("단")) return "단";
+        if (fullTerm.startsWith("장")) return "장";
+        return "중";
+    }
+
 
     // ──────────────────────────────────────
     // 공통 Flask 호출

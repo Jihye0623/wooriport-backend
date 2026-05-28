@@ -17,6 +17,8 @@ public interface PortfolioFlowItemRepository extends JpaRepository<PortfolioFlow
         SELECT pi FROM PortfolioFlowItems pi
         LEFT JOIN FETCH pi.asset
         LEFT JOIN FETCH pi.product
+        LEFT JOIN FETCH pi.flow f
+        LEFT JOIN FETCH f.gatheringAsset
         WHERE pi.flow.user.id = :userId
           AND pi.stepType = com.wooriport.core_api.domain.PortfolioFlowItems.StepType.PUT
         """)
