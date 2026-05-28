@@ -228,8 +228,8 @@ public class ReportService {
                                       List<Transactions> txList, int prevYear, int prevMonth,
                                       Map<String, Object> flaskRes) {
 
-        // hover_description: {"식비": "설명1\n설명2", "교통": "..."} 형태의 JSON
-        Map<String, String> hoverMap = parseHoverDescription((String) flaskRes.get("hover_description"));
+        // hover_description: {"식비": "설명1\n설명2", "교통": "..."} 형태 (String 또는 Map 모두 처리)
+        Map<String, String> hoverMap = parseHoverDescription(flaskRes.get("hover_description"));
 
         // 이번달 카테고리별 지출 합산
         Map<String, Long> currentAmounts = txList.stream()
@@ -414,10 +414,24 @@ public class ReportService {
     // ──────────────────────────────────────
     // hover_description JSON 파싱
     // ──────────────────────────────────────
-    private Map<String, String> parseHoverDescription(String json) {
-        if (json == null || json.isBlank()) return Map.of();
+    // Flask: [{category: "식비", content: "..."}, ...] 또는 {"식비": "..."} 형태 모두 처리
+    @SuppressWarnings("unchecked")
+    private Map<String, String> parseHoverDescription(Object raw) {
+        if (raw == null) return Map.of();
         try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
+            if (raw instanceof List<?> list) {
+                return ((List<Map<String, Object>>) list).stream()
+                        .filter(m -> m.get("category") != null && m.get("content") != null)
+                        .collect(Collectors.toMap(
+                                m -> (String) m.get("category"),
+                                m -> (String) m.get("content"),
+                                (a, b) -> a));
+            }
+            if (raw instanceof String json) {
+                if (json.isBlank()) return Map.of();
+                return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
+            }
+            return objectMapper.convertValue(raw, new TypeReference<Map<String, String>>() {});
         } catch (Exception e) {
             log.warn("[ReportJob] hover_description 파싱 실패: {}", e.getMessage());
             return Map.of();
