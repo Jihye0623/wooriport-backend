@@ -1,13 +1,18 @@
 package com.wooriport.core_api.service;
 
+import com.wooriport.core_api.base.dto.event.EventCreateRequestDto;
 import com.wooriport.core_api.base.dto.event.EventDetailResponseDto;
 import com.wooriport.core_api.base.dto.event.EventListResponseDto;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Event;
+import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.EventRepository;
+import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -17,6 +22,24 @@ import java.util.stream.Collectors;
 public class EventService {
 
     private final EventRepository eventRepository;
+    private final UserRepository userRepository;
+
+    // POST /events
+    @Transactional
+    public UUID createEvent(UUID userId, EventCreateRequestDto request) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
+        Event event = Event.builder()
+                .user(user)
+                .title(request.getTitle())
+                .targetAmount(Long.parseLong(request.getTargetAmount()))
+                .deadline(LocalDate.parse(request.getDeadline()))
+                .eventDescription(request.getUserInput())
+                .build();
+
+        return eventRepository.save(event).getId();
+    }
 
     // GET /events
     @Transactional(readOnly = true)
@@ -51,7 +74,6 @@ public class EventService {
                 .targetAmount(event.getTargetAmount())
                 .deadline(event.getDeadline().toString())
                 .status(event.getStatus().name())
-                .summaryMessage(event.getSummaryMessage())
                 .eventDescription(event.getEventDescription())
                 .build();
     }
