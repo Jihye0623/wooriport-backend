@@ -28,6 +28,13 @@ public interface AssetRepository extends JpaRepository<Assets, UUID> {
         """)
     List<Assets> findByUserIdAndDeletedAtIsNull(@Param("userId") UUID userId);
 
+    // 업서트용: soft-delete 포함 전체 조회 (asset_number 매칭 시 복원하기 위함)
+    @Query("""
+        SELECT a FROM Assets a
+        WHERE a.user.id = :userId
+        """)
+    List<Assets> findAllByUserIdIncludingDeleted(@Param("userId") UUID userId);
+
     // 단건 조회 (소유권 검증 포함)
     @Query("""
         SELECT a FROM Assets a

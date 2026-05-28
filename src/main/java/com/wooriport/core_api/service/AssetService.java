@@ -63,14 +63,11 @@ public class AssetService {
                 .build();
     }
 
-    // 2. 선택 연동
+    // 2. 선택 연동 (asset_number 기준 업서트)
     @Transactional
     public AssetListResponseDto syncAssets(UUID userId, AssetSyncRequestDto request) {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException());
-
-        // 기존 계좌 soft delete
-        assetRepository.findByUserIdAndDeletedAtIsNull(userId).forEach(Assets::delete);
 
         // 이메일 기준 더미 계좌 전체 조회
         List<DummyMydata> dummyList = dummyMydataRepository.findByEmail(user.getEmail());
@@ -85,7 +82,7 @@ public class AssetService {
         if (request == null
                 || request.getSelectedAssetNumbers() == null
                 || request.getSelectedAssetNumbers().isEmpty()) {
-            selectedList = dummyList;  // 전체 연동
+            selectedList = dummyList;
         } else {
             selectedList = dummyList.stream()
                     .filter(d -> request.getSelectedAssetNumbers()
@@ -97,9 +94,30 @@ public class AssetService {
             }
         }
 
-        // assets 저장 (is_salary = false 초기화)
-        List<Assets> newAssets = selectedList.stream()
-                .map(d -> Assets.builder()
+        // 기존 자산 전체(soft-delete 포함)를 asset_number 기준으로 인덱싱
+        List<Assets> existingAll = assetRepository.findAllByUserIdIncludingDeleted(userId);
+        java.util.Map<String, Assets> existingByNumber = existingAll.stream()
+                .collect(Collectors.toMap(Assets::getAssetNumber, a -> a, (a, b) -> a));
+
+        java.util.Set<String> selectedNumbers = selectedList.stream()
+                .map(DummyMydata::getAssetNumber)
+                .collect(Collectors.toSet());
+
+        // 선택되지 않은 기존 활성 계좌 → soft-delete
+        existingAll.stream()
+                .filter(a -> a.getDeletedAt() == null)
+                .filter(a -> !selectedNumbers.contains(a.getAssetNumber()))
+                .forEach(Assets::delete);
+
+        // 선택된 항목: 기존 있으면 복원/업데이트, 없으면 신규 insert
+        List<Assets> resultAssets = new java.util.ArrayList<>();
+        for (DummyMydata d : selectedList) {
+            Assets existing = existingByNumber.get(d.getAssetNumber());
+            if (existing != null) {
+                existing.restoreFromDummy(d);
+                resultAssets.add(existing);
+            } else {
+                resultAssets.add(Assets.builder()
                         .user(user)
                         .institution(d.getInstitution())
                         .assetType(d.getAssetType())
@@ -107,18 +125,19 @@ public class AssetService {
                         .accountPurpose(d.getAccountPurpose())
                         .assetNumber(d.getAssetNumber())
                         .balance(d.getBalance())
-                        .isSalary(false)          // sync 시 전부 false
+                        .isSalary(false)
                         .bankType(d.getBankType())
                         .syncedAt(LocalDateTime.now())
-                        .build())
-                .toList();
+                        .build());
+            }
+        }
 
-        assetRepository.saveAll(newAssets);
+        assetRepository.saveAll(resultAssets);
 
-        log.info("[AssetService] 마이데이터 연동 완료 — email: {}, 전체: {}개 중 {}개 선택",
-                user.getEmail(), dummyList.size(), newAssets.size());
+        log.info("[AssetService] 마이데이터 연동 완료 — email: {}, 전체: {}개 중 {}개 업서트",
+                user.getEmail(), dummyList.size(), resultAssets.size());
 
-        return toListResponse(newAssets);
+        return toListResponse(resultAssets);
     }
 
     // POST /assets/sync
