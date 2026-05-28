@@ -307,6 +307,7 @@ public class AssetService {
                                 Assets.AccountType.PARKING,
                                 Assets.AccountType.CMA,
                                 Assets.AccountType.IRP,
+                                Assets.AccountType.ISA,
                                 Assets.AccountType.CHECKING)
                         .contains(a.getAssetType()))
                 .mapToLong(Assets::getBalance)

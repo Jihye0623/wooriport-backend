@@ -52,4 +52,21 @@ public interface AssetRepository extends JpaRepository<Assets, UUID> {
     // 기존에 findByUserIdAndIsSalaryTrue() 있으면 아래 것도 추가
     Optional<Assets> findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(UUID userId);
 
+    // asset-portfolio 화면 - 끌어오기/모으기 통장 후보 (정책 완화 후)
+    //  제외 조건:
+    //   - 카드 (CREDIT_CARD / DEBIT_CARD)
+    //   - soft delete
+    //  portfolios.asset_id / portfolio_flows.gathering_asset_id 중복 여부는
+    //  클라이언트가 현재 flows state 기준으로 동적 필터링한다.
+    @Query("""
+        SELECT a FROM Assets a
+        WHERE a.user.id = :userId
+          AND a.deletedAt IS NULL
+          AND a.assetType NOT IN (
+              com.wooriport.core_api.domain.Assets.AccountType.CREDIT_CARD,
+              com.wooriport.core_api.domain.Assets.AccountType.DEBIT_CARD)
+        ORDER BY a.institution, a.accountName
+        """)
+    List<Assets> findAvailableForFlows(@Param("userId") UUID userId);
+
 }

@@ -27,6 +27,24 @@ INSERT INTO product_category_rates (id, category_label, rate) VALUES
 ON CONFLICT (category_label) DO UPDATE
     SET rate = EXCLUDED.rate;
 
+-- ─── 0-1. 사용자 무관 시드: PRODUCTS (asset-portfolio 화면용) ────
+-- portfolio_flow_items.product_id 가 이 상품들을 가리킴.
+-- products 는 글로벌이므로 사용자 시드(DO 블록) 재실행 시 지우지 않음.
+INSERT INTO products (id, product_type, institution, name, interest_rate, description, updated_at, created_at) VALUES
+    ('11111111-bbbb-1111-1111-111111111111', 'DEPOSIT', '우리은행',   'WON 정기예금',      3.50,  '12개월 만기 정기예금',          NOW(), NOW()),
+    ('22222222-bbbb-2222-2222-222222222222', 'SAVING',  '카카오뱅크', '26주 적금',         7.00,  '매주 늘려 모으는 단기 적금',     NOW(), NOW()),
+    ('33333333-bbbb-3333-3333-333333333333', 'STOCK',   '미래에셋',   'TIGER 미국S&P500',  10.50, '미국 S&P500 추종 ETF',         NOW(), NOW()),
+    ('44444444-bbbb-4444-4444-444444444444', 'IRP',     '미래에셋',   '미래에셋 TDF2045',  6.20,  '은퇴시점 자동배분 IRP 상품',    NOW(), NOW()),
+    ('55555555-bbbb-5555-5555-555555555555', 'STOCK',   '미래에셋',   'KODEX 나스닥100',   12.80, '미국 나스닥 100 추종 ETF',     NOW(), NOW()),
+    ('66666666-bbbb-6666-6666-666666666666', 'SAVING',  '토스뱅크',   '토스 자유적금',     4.50,  '자유 입금 가능한 적금',         NOW(), NOW())
+ON CONFLICT (id) DO UPDATE
+    SET product_type   = EXCLUDED.product_type,
+        institution    = EXCLUDED.institution,
+        name           = EXCLUDED.name,
+        interest_rate  = EXCLUDED.interest_rate,
+        description    = EXCLUDED.description,
+        updated_at     = EXCLUDED.updated_at;
+
 DO $$
 DECLARE
     v_user UUID;
@@ -95,23 +113,37 @@ BEGIN
     --   f1 (기본 흐름): event_id=NULL,  gathering=a1, PUT 항목 4개
     --   f2 (이벤트 흐름): event_id=e1, gathering=a6 (목표 진행도 = a6.balance / event.target_amount)
     -- =========================================================
-    INSERT INTO portfolio_flows (id, user_id, event_id, title, priority, gathering_asset_id, is_active, started_at, created_at) VALUES
+    INSERT INTO portfolio_flows (id, user_id, event_id, title, summary, term, gathering_asset_id, is_active, started_at, created_at) VALUES
     ('f1111111-1111-1111-1111-111111111111', v_user, NULL,
-     '기본 흐름', 1, 'a1111111-1111-1111-1111-111111111111', TRUE, NOW(), NOW()),
+     '기본 흐름', '비상금·생활비 베이스를 단단히 다져요', '단',
+     'a1111111-1111-1111-1111-111111111111', TRUE, NOW(), NOW()),
     ('f2222222-2222-2222-2222-222222222222', v_user, 'e1111111-1111-1111-1111-111111111111',
-     '제주 여행 흐름', 2, 'a6666666-6666-6666-6666-666666666666', TRUE, NOW(), NOW());
+     '제주 여행 흐름', '제주 여행 자금을 모으는 흐름이에요', '중',
+     'a6666666-6666-6666-6666-666666666666', TRUE, NOW(), NOW());
 
     -- =========================================================
-    -- 6. PORTFOLIO_FLOW_ITEMS (PUT만 — 대시보드 포트폴리오 카테고리 소스)
-    --    label 매핑: STOCK/BOND→ETF, DEPOSIT→현금성, SAVING→적금, IRP→IRP
-    --    amount = asset.balance × product_ratio / 100
+    -- 6. PORTFOLIO_FLOW_ITEMS
+    --    PULL — asset-portfolio "1. 끌어오기" (sources)
+    --           amount = 끌어올 금액 (원 단위)
+    --    PUT  — asset-portfolio "3. 넣기"     (products)
+    --           product_id = products 테이블 FK
+    --           label 매핑: STOCK/BOND→ETF, DEPOSIT→현금성, SAVING→적금, IRP→IRP
     -- =========================================================
     INSERT INTO portfolio_flow_items (id, flow_id, step_type, asset_id, amount, product_id, product_type, product_ratio, created_at) VALUES
-    ('11111111-aaaa-1111-1111-111111111111', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a2222222-2222-2222-2222-222222222222', NULL, NULL, 'DEPOSIT', 100, NOW()),
-    ('22222222-aaaa-2222-2222-222222222222', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a3333333-3333-3333-3333-333333333333', NULL, NULL, 'SAVING',  100, NOW()),
-    ('33333333-aaaa-3333-3333-333333333333', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a4444444-4444-4444-4444-444444444444', NULL, NULL, 'STOCK',   100, NOW()),
-    ('44444444-aaaa-4444-4444-444444444444', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a5555555-5555-5555-5555-555555555555', NULL, NULL, 'IRP',     100, NOW()),
-    ('55555555-aaaa-5555-5555-555555555555', 'f1111111-1111-1111-1111-111111111111', 'PUT', 'a7777777-7777-7777-7777-777777777777', NULL, NULL, 'STOCK',   100, NOW());
+    -- f1 (기본 흐름) PULL — 급여통장/파킹에서 끌어옴
+    ('aaaa1111-1111-1111-1111-111111111111', 'f1111111-1111-1111-1111-111111111111', 'PULL', 'a1111111-1111-1111-1111-111111111111', 1500000, NULL, NULL,      NULL, NOW()),
+    ('aaaa2222-2222-2222-2222-222222222222', 'f1111111-1111-1111-1111-111111111111', 'PULL', 'a2222222-2222-2222-2222-222222222222',  600000, NULL, NULL,      NULL, NOW()),
+
+    -- f1 (기본 흐름) PUT — 상품에 넣기 (product_id 채움)
+    ('11111111-aaaa-1111-1111-111111111111', 'f1111111-1111-1111-1111-111111111111', 'PUT',  'a2222222-2222-2222-2222-222222222222', NULL, '11111111-bbbb-1111-1111-111111111111', 'DEPOSIT', 20, NOW()),
+    ('22222222-aaaa-2222-2222-222222222222', 'f1111111-1111-1111-1111-111111111111', 'PUT',  'a3333333-3333-3333-3333-333333333333', NULL, '22222222-bbbb-2222-2222-222222222222', 'SAVING',  20, NOW()),
+    ('33333333-aaaa-3333-3333-333333333333', 'f1111111-1111-1111-1111-111111111111', 'PUT',  'a4444444-4444-4444-4444-444444444444', NULL, '33333333-bbbb-3333-3333-333333333333', 'STOCK',   30, NOW()),
+    ('44444444-aaaa-4444-4444-444444444444', 'f1111111-1111-1111-1111-111111111111', 'PUT',  'a5555555-5555-5555-5555-555555555555', NULL, '44444444-bbbb-4444-4444-444444444444', 'IRP',     15, NOW()),
+    ('55555555-aaaa-5555-5555-555555555555', 'f1111111-1111-1111-1111-111111111111', 'PUT',  'a7777777-7777-7777-7777-777777777777', NULL, '55555555-bbbb-5555-5555-555555555555', 'STOCK',   15, NOW()),
+
+    -- f2 (이벤트 흐름 — 제주 여행) PULL/PUT
+    ('aaaa3333-3333-3333-3333-333333333333', 'f2222222-2222-2222-2222-222222222222', 'PULL', 'a1111111-1111-1111-1111-111111111111',  300000, NULL, NULL,      NULL, NOW()),
+    ('66666666-aaaa-6666-6666-666666666666', 'f2222222-2222-2222-2222-222222222222', 'PUT',  'a6666666-6666-6666-6666-666666666666', NULL, '66666666-bbbb-6666-6666-666666666666', 'SAVING', 100, NOW());
 
     -- =========================================================
     -- 7. TRANSACTIONS (이번 달, 총 2,449,500)
@@ -156,4 +188,5 @@ UNION ALL SELECT 'portfolio_flow_items',      COUNT(*) FROM portfolio_flow_items
     WHERE flow_id IN (SELECT id FROM portfolio_flows WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com'))
 UNION ALL SELECT 'event',                     COUNT(*) FROM event                     WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
 UNION ALL SELECT 'transactions',              COUNT(*) FROM transactions              WHERE user_id = (SELECT id FROM users WHERE email = 'dashboard@wooriport.com')
-UNION ALL SELECT 'product_category_rates',    COUNT(*) FROM product_category_rates;
+UNION ALL SELECT 'product_category_rates',    COUNT(*) FROM product_category_rates
+UNION ALL SELECT 'products',                  COUNT(*) FROM products;
