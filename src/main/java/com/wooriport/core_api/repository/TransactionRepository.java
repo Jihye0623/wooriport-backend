@@ -134,4 +134,18 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
             @Param("year") int year,
             @Param("month") int month);
 
+    // 월간 리포트용: 입출금 전체 거래 (asset JOIN FETCH)
+    @Query("""
+        SELECT t FROM Transactions t
+        JOIN FETCH t.asset
+        WHERE t.user.id = :userId
+          AND EXTRACT(YEAR FROM t.transactionAt) = :year
+          AND EXTRACT(MONTH FROM t.transactionAt) = :month
+        ORDER BY t.transactionAt ASC
+        """)
+    List<Transactions> findAllByMonth(
+            @Param("userId") UUID userId,
+            @Param("year") int year,
+            @Param("month") int month);
+
 }
