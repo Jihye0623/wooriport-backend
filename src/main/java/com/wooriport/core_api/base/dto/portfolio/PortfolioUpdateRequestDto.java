@@ -16,9 +16,10 @@ public class PortfolioUpdateRequestDto {
     @Getter
     public static class PortfolioItem {
         @NotNull
-        private String assetType;   // STOCK / BOND / CASH / IRP / EMERGENCY / FIXED
+        private String assetType;      // STOCK / BOND / CASH / IRP / EMERGENCY / FIXED
         @NotNull
-        private Long assetAmount; // 이체 금액
-        private UUID assetId;       // 연동 계좌 (null 허용)
+        private Long assetAmount;      // 이체 금액
+        private UUID assetId;          // 연동 계좌 (null 허용)
+        private String accountPurpose; // Flask category / 목적 레이블 → assets.account_purpose 저장
     }
 }

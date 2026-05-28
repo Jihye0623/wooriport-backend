@@ -17,11 +17,12 @@ public class PortfolioListResponseDto {
     @Builder
     public static class PortfolioItem {
         private UUID id;
-        private String assetType;    // STOCK / BOND / CASH / IRP / EMERGENCY / FIXED
-        private Long assetAmount;  // 비율 (%)
-        private Boolean isLinked;    // 계좌 연동 여부
-        private String institution;  // 연동 기관명
-        private String assetNumber;  // 연동 계좌번호
-        private Long balance;        // 현재 잔액
+        private String assetType;      // STOCK / BOND / CASH / IRP / EMERGENCY / FIXED
+        private Long assetAmount;
+        private Boolean isLinked;
+        private String institution;
+        private String assetNumber;
+        private Long balance;
+        private String accountPurpose; // assets.account_purpose
     }
 }
