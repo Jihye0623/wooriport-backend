@@ -180,9 +180,10 @@ public class AgentService {
                 .collect(Collectors.toList()));
         flaskBody.put("assets", assets.stream()
                 .map(a -> Map.of(
-                        "asset_type", a.getAssetType().name(),
-                        "asset_number", a.getAssetNumber() != null ? a.getAssetNumber() : "",
-                        "balance",  String.valueOf(a.getBalance())))
+                        "asset_id",    a.getId().toString(),
+                        "account_name", a.getAccountName() != null ? a.getAccountName() : "",
+                        "asset_type",  a.getAssetType().name(),
+                        "balance",     a.getBalance()))
                 .collect(Collectors.toList()));
 
         Map<String, Object> flaskResponse = callFlask("/portfolio/profile", flaskBody);
@@ -254,9 +255,10 @@ public class AgentService {
 
         List<Map<String, Object>> assetList = assets.stream()
                 .map(a -> Map.<String, Object>of(
-                        "asset_type", a.getAssetType().name(),
-                        "asset_number", a.getAssetNumber() != null ? a.getAssetNumber() : "",
-                        "balance",  String.valueOf(a.getBalance())))
+                        "asset_id",    a.getId().toString(),
+                        "account_name", a.getAccountName() != null ? a.getAccountName() : "",
+                        "asset_type",  a.getAssetType().name(),
+                        "balance",     a.getBalance()))
                 .collect(Collectors.toList());
 
         // 5. porTI 코멘트 (유형 설명)
@@ -281,28 +283,27 @@ public class AgentService {
         List<Map<String, Object>> rawPlans =
                 (List<Map<String, Object>>) flaskResponse.get("salary_rebalance");
 
-        // asset_number로 계좌 매핑
-        Map<String, Assets> assetNumberMap = assets.stream()
-                .filter(a -> a.getAssetNumber() != null)
-                .collect(Collectors.toMap(Assets::getAssetNumber, a -> a, (a, b) -> a));
+        // asset_id로 계좌 매핑
+        Map<String, Assets> assetIdMap = assets.stream()
+                .collect(Collectors.toMap(a -> a.getId().toString(), a -> a));
 
         List<AgentRecommendResponseDto.RebalancingPlan> plans = rawPlans.stream()
                 .map(p -> {
-                    String assetNumber = (String) p.get("asset_number");
-                    String category   = (String) p.get("category");
+                    String assetId  = (String) p.get("asset_id");
+                    String category = (String) p.get("category");
                     Long amount = p.get("ratio") != null
                             ? salary * ((Number) p.get("ratio")).longValue() / 100
                             : 0L;
 
-                    Assets matched = assetNumberMap.get(assetNumber);
+                    Assets matched = assetIdMap.get(assetId);
 
                     return AgentRecommendResponseDto.RebalancingPlan.builder()
                             .assetId(matched != null ? matched.getId() : null)
                             .institution(matched != null ? matched.getInstitution() : null)
                             .assetType(matched != null ? matched.getAssetType().name() : null)
-                            .assetNumber(assetNumber)
+                            .assetNumber(matched != null ? matched.getAssetNumber() : null)
                             .amount(amount)
-                            .nickname(category)   // Flask가 지은 별명
+                            .nickname(category)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -372,26 +373,26 @@ public class AgentService {
         Long currentInvestAmount = user.getMonthlyInvestAmount() != null
                 ? user.getMonthlyInvestAmount() : 0L;
 
-        // 4. diff 계산용 기존 포트폴리오 Map (assetNumber → amount)
+        // 4. diff 계산용 기존 포트폴리오 Map (assetId → amount)
         List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
-        Map<String, Assets> assetNumberMap = assets.stream()
-                .filter(a -> a.getAssetNumber() != null)
-                .collect(Collectors.toMap(Assets::getAssetNumber, a -> a, (a, b) -> a));
+        Map<String, Assets> assetIdMap = assets.stream()
+                .collect(Collectors.toMap(a -> a.getId().toString(), a -> a));
 
         Map<String, Long> previousAmountMap = currentPortfolios.stream()
-                .filter(p -> p.getAsset() != null && p.getAsset().getAssetNumber() != null)
+                .filter(p -> p.getAsset() != null)
                 .collect(Collectors.toMap(
-                        p -> p.getAsset().getAssetNumber(),
+                        p -> p.getAsset().getId().toString(),
                         Portfolios::getAssetAmount,
                         (a, b) -> a));
 
         // 5. 현재 salary_rebalance 목록 (amount 기반)
         List<Map<String, Object>> currentSalaryRebalance = currentPortfolios.stream()
-                .filter(p -> p.getAsset() != null && p.getAsset().getAssetNumber() != null)
+                .filter(p -> p.getAsset() != null)
                 .map(p -> Map.<String, Object>of(
-                        "asset_number", p.getAsset().getAssetNumber(),
-                        "category",     p.getAssetType().name(),
-                        "amount",       p.getAssetAmount()))
+                        "asset_id",    p.getAsset().getId().toString(),
+                        "account_name", p.getAsset().getAccountName() != null ? p.getAsset().getAccountName() : "",
+                        "category",    p.getAssetType().name(),
+                        "amount",      p.getAssetAmount()))
                 .collect(Collectors.toList());
 
         // 6. Flask /rebalance 호출
@@ -419,21 +420,21 @@ public class AgentService {
         List<Map<String, Object>> rawPlans =
                 (List<Map<String, Object>>) flaskResponse.get("salary_rebalance");
 
-        // 8. asset_number 기반으로 diff 계산 (amount 직접 사용)
+        // 8. asset_id 기반으로 diff 계산 (amount 직접 사용)
         List<AgentInputResponseDto.RebalancingPlan> plans = rawPlans.stream()
                 .map(p -> {
-                    String assetNumber = (String) p.get("asset_number");
-                    Long   amount      = ((Number) p.get("amount")).longValue();
-                    String category    = (String) p.get("category");
+                    String assetId  = (String) p.get("asset_id");
+                    Long   amount   = ((Number) p.get("amount")).longValue();
+                    String category = (String) p.get("category");
 
-                    Assets matched  = assetNumberMap.get(assetNumber);
-                    Long   previous = previousAmountMap.getOrDefault(assetNumber, 0L);
+                    Assets matched  = assetIdMap.get(assetId);
+                    Long   previous = previousAmountMap.getOrDefault(assetId, 0L);
 
                     return AgentInputResponseDto.RebalancingPlan.builder()
                             .assetId(matched != null ? matched.getId() : null)
                             .institution(matched != null ? matched.getInstitution() : null)
                             .assetType(matched != null ? matched.getAssetType().name() : null)
-                            .assetNumber(assetNumber)
+                            .assetNumber(matched != null ? matched.getAssetNumber() : null)
                             .amount(amount)
                             .nickname(category)
                             .previousAmount(previous)
