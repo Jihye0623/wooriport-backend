@@ -249,13 +249,22 @@ public class DashboardService {
             Map<String, String> rateByLabel) {
 
         // label → [(name, amount)] 누적
+        //   금액 산정: PUT item 에 asset 이 직접 묶여 있으면 그 자산 잔액,
+        //              없으면 (prescription 으로 생성된 경우) 흐름의 모으기 통장 잔액을 사용.
+        //   amount = sourceAsset.balance × productRatio / 100
         Map<String, List<NamedAmount>> bucketsByLabel = new LinkedHashMap<>();
         for (PortfolioFlowItems pi : putItems) {
             String label = labelOf(pi.getProductType());
             if (label == null) continue;
-            long balance = (pi.getAsset() != null && pi.getAsset().getBalance() != null)
-                    ? pi.getAsset().getBalance()
+
+            Assets sourceAsset = pi.getAsset();
+            if (sourceAsset == null && pi.getFlow() != null) {
+                sourceAsset = pi.getFlow().getGatheringAsset();
+            }
+            long balance = (sourceAsset != null && sourceAsset.getBalance() != null)
+                    ? sourceAsset.getBalance()
                     : 0L;
+
             int ratio = pi.getProductRatio() == null ? 0 : pi.getProductRatio();
             long amount = balance * ratio / 100;
             bucketsByLabel.computeIfAbsent(label, k -> new ArrayList<>())
