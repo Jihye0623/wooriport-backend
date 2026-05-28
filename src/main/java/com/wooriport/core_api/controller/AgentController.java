@@ -56,47 +56,30 @@ public class AgentController {
     }
 
     @Operation(
-            summary = "이벤트 기반 리밸런싱 재추천",
-            description = "자연어 이벤트 목표 입력 시 기존 포트폴리오 대비 diff 포함해서 재추천합니다."
+            summary = "자연어 목표 구체화",
+            description = "사용자의 자연어 입력을 AI가 분석해 목표 이름, 금액, 마감일을 반환합니다."
     )
-    @PostMapping("/input")
+    @PostMapping("/event/input")
+    public ResponseEntity<ResponseDTO<AgentGoalResponseDto>> goal(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody AgentGoalRequestDto request) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ResponseDTO.success(201, "목표 구체화 성공",
+                        agentService.goal(userDetails.getUserId(), request)));
+    }
+
+    @Operation(
+            summary = "이벤트 기반 리밸런싱 재추천",
+            description = "목표 확정 시 기존 포트폴리오 대비 diff 포함해서 재추천합니다."
+    )
+    @PostMapping("/event/rebalance")
     public ResponseEntity<ResponseDTO<AgentInputResponseDto>> input(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody AgentInputRequestDto request) {
 
         return ResponseEntity.ok(ResponseDTO.success(200, "이벤트 기반 리밸런싱 재추천 성공",
-                agentService.input(userDetails.getUserId(), request)));
+                agentService.rebalance(userDetails.getUserId(), request)));
     }
 
-
-//    // ────────────────────────────────────────────
-//    // STEP 6. 포트폴리오 심층 진단
-//    // ────────────────────────────────────────────
-//    @Operation(
-//            summary = "[STEP 6] AI 심층 진단",
-//            description = "사용자가 확정한 주식/채권/현금 비율 입력 → AI 심층 진단 리포트 반환"
-//    )
-//    @PostMapping("/analysis")
-//    public ResponseEntity<ResponseDTO<AnalysisResponseDto>> analyzePortfolio(
-//            @AuthenticationPrincipal CustomUserDetails userDetails,
-//            @Valid @RequestBody AnalysisRequestDto request) {
-//
-//        return ResponseEntity.ok(ResponseDTO.success(200, "심층 진단 성공",
-//                agentService.analyzePortfolio(userDetails.getUserId(), request)));
-//    }
-//
-//    // ────────────────────────────────────────────
-//    // STEP 7. 포트폴리오 확정
-//    // ────────────────────────────────────────────
-//    @Operation(summary = "[STEP 7] 포트폴리오 확정 저장")
-//    @PostMapping("/confirm")
-//    public ResponseEntity<ResponseDTO<Void>> confirmGoal(
-//            @AuthenticationPrincipal CustomUserDetails userDetails,
-//            @Valid @RequestBody GoalConfirmRequestDto request) {
-//
-//        agentService.confirmGoal(userDetails.getUserId(), request);
-//
-//        return ResponseEntity.status(HttpStatus.CREATED)
-//                .body(ResponseDTO.success(201, "포트폴리오 확정 완료", null));
-//    }
 }

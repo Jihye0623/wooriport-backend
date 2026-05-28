@@ -323,13 +323,33 @@ public class AgentService {
                 .build();
     }
 
+    
+    // ──────────────────────────────────────
+    // POST /agent/event/input
+    // 자연어 목표 입력 → AI가 목표 구체화
+    // ──────────────────────────────────────
+    public AgentGoalResponseDto goal(UUID userId, AgentGoalRequestDto request) {
+        Map<String, Object> flaskBody = new HashMap<>();
+        flaskBody.put("user_id", userId.toString());
+        flaskBody.put("user_input", request.getUserInput());
+
+        Map<String, Object> flaskResponse = callFlask("/event/input", flaskBody);
+
+        return AgentGoalResponseDto.builder()
+                .createdAt(String.valueOf(flaskResponse.get("created_at")))
+                .title(String.valueOf(flaskResponse.get("title")))
+                .targetAmount(String.valueOf(flaskResponse.get("target_amount")))
+                .deadline(String.valueOf(flaskResponse.get("deadline")))
+                .build();
+    }
+
 
     // ──────────────────────────────────────
-    // POST /agent/input
-    // 자연어 이벤트 → 리밸런싱 재추천 + diff
+    // POST /agent/event/rebalacne
+    // 구체화된 목표 → 리밸런싱 재추천 + diff
     // ──────────────────────────────────────
     @Transactional(readOnly = true)
-    public AgentInputResponseDto input(UUID userId, AgentInputRequestDto request) {
+    public AgentInputResponseDto rebalance(UUID userId, AgentInputRequestDto request) {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException());
 
@@ -362,30 +382,26 @@ public class AgentService {
                         Portfolios::getAssetAmount,
                         (a, b) -> a));
 
-        // 5. 현재 salary_rebalance 목록 생성
+        // 5. 현재 salary_rebalance 목록 (amount 기반)
         List<Map<String, Object>> currentSalaryRebalance = currentPortfolios.stream()
                 .filter(p -> p.getAsset() != null && p.getAsset().getAssetNumber() != null)
-                .map(p -> {
-                    long ratio = salary > 0
-                            ? p.getAssetAmount() * 100 / salary
-                            : 0L;
-                    return Map.<String, Object>of(
-                            "asset_number", p.getAsset().getAssetNumber(),
-                            "category",     p.getAssetType().name(),
-                            "ratio",        (int) ratio);
-                })
+                .map(p -> Map.<String, Object>of(
+                        "asset_number", p.getAsset().getAssetNumber(),
+                        "category",     p.getAssetType().name(),
+                        "amount",       p.getAssetAmount()))
                 .collect(Collectors.toList());
 
         // 6. Flask /rebalance 호출
-        // rebalance 객체로 묶어서 전달
         Map<String, Object> rebalanceObj = new HashMap<>();
-        rebalanceObj.put("salary",            salary);
-        rebalanceObj.put("invest_amount",     currentInvestAmount);
-        rebalanceObj.put("salary_rebalance",  currentSalaryRebalance);
+        rebalanceObj.put("salary",           salary);
+        rebalanceObj.put("invest_amount",    currentInvestAmount);
+        rebalanceObj.put("salary_rebalance", currentSalaryRebalance);
 
         Map<String, Object> flaskBody = new HashMap<>();
         flaskBody.put("user_id",       userId.toString());
-        flaskBody.put("user_input",    request.getUserInput());
+        flaskBody.put("title",         request.getTitle());
+        flaskBody.put("target_amount", request.getTargetAmount());
+        flaskBody.put("deadline",      request.getDeadline());
         flaskBody.put("porti_type",    user.getPortiType().name());
         flaskBody.put("porti_comment", user.getPortiComment());
         flaskBody.put("rebalance",     rebalanceObj);
@@ -393,22 +409,22 @@ public class AgentService {
         Map<String, Object> flaskResponse = callFlask("/event/rebalance", flaskBody);
 
         // 7. Flask 응답 파싱
+        Long newInvestAmount = ((Number) flaskResponse.get("invest_amount")).longValue();
+        String rebalanceComment = (String) flaskResponse.get("rebalance_comment");
+
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPlans =
                 (List<Map<String, Object>>) flaskResponse.get("salary_rebalance");
 
-        String rebalanceComment = (String) flaskResponse.get("rebalance_comment");
-
-        // 8. asset_number 기반으로 diff 계산
+        // 8. asset_number 기반으로 diff 계산 (amount 직접 사용)
         List<AgentInputResponseDto.RebalancingPlan> plans = rawPlans.stream()
                 .map(p -> {
                     String assetNumber = (String) p.get("asset_number");
+                    Long   amount      = ((Number) p.get("amount")).longValue();
                     String category    = (String) p.get("category");
-                    int    ratio       = ((Number) p.get("ratio")).intValue();
-                    Long   amount      = salary * ratio / 100;
 
-                    Assets matched   = assetNumberMap.get(assetNumber);
-                    Long   previous  = previousAmountMap.getOrDefault(assetNumber, 0L);
+                    Assets matched  = assetNumberMap.get(assetNumber);
+                    Long   previous = previousAmountMap.getOrDefault(assetNumber, 0L);
 
                     return AgentInputResponseDto.RebalancingPlan.builder()
                             .assetId(matched != null ? matched.getId() : null)
@@ -424,20 +440,19 @@ public class AgentService {
                 .collect(Collectors.toList());
 
         // 9. 남은 금액 계산
-        Long totalPlanned     = plans.stream().mapToLong(AgentInputResponseDto.RebalancingPlan::getAmount).sum();
-        Long remainingAmount  = salary - currentInvestAmount - totalPlanned;
+        Long totalPlanned    = plans.stream().mapToLong(AgentInputResponseDto.RebalancingPlan::getAmount).sum();
+        Long remainingAmount = salary - newInvestAmount - totalPlanned;
 
-        log.info("[AgentService] input 완료 — userId: {}, 입력: {}", userId, request.getUserInput());
+        log.info("[AgentService] input 완료 — userId: {}, 목표: {}", userId, request.getTitle());
 
         return AgentInputResponseDto.builder()
-                .rebalanceComment(rebalanceComment)   // ← Flask 코멘트 추가
-                .investAmount(currentInvestAmount)
-                .investAmountDiff(0L)                  // Flask가 invest_amount 변경값 안 줌
+                .rebalanceComment(rebalanceComment)
+                .investAmount(newInvestAmount)
+                .investAmountDiff(newInvestAmount - currentInvestAmount)
                 .rebalancingPlans(plans)
                 .remainingAmount(remainingAmount)
                 .build();
     }
-
 
     // ──────────────────────────────────────
     // 공통 Flask 호출
