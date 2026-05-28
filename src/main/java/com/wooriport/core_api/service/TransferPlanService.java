@@ -33,7 +33,7 @@ public class TransferPlanService {
     private final NotificationRepository notificationRepository;
     private final PortfolioRepository portfolioRepository;
     private final TransferExecutionRepository transferExecutionRepository;
-    private final PortfolioItemRepository portfolioItemRepository;
+    private final PortfolioFlowItemRepository portfolioFlowItemRepository;
 
     // ──────────────────────────────────────
     // GET /transfer-plans
@@ -72,7 +72,15 @@ public class TransferPlanService {
 
         Long monthlySalary = salaryTx.getAmount();
 
-        // 2. portfolios 조회
+        // 2-1. 이전 급여 대비 ±5만원 이내면 fastAPI 호출 예정 (현재 미구현, 3번 흐름으로 진행)
+        boolean isSameRange = user.getSalary() != null &&
+                Math.abs(monthlySalary - user.getSalary()) <= 50_000L;
+        if (isSameRange) {
+            // TODO: fastAPI /salary POST 요청 → AI 리밸런싱 계획 수신 후 2-2 처리
+            log.info("[generateFromSalary] 급여 유사 범위 감지(±5만원) — fastAPI 연동 예정, 3번 흐름으로 진행");
+        }
+
+        // 3번: 포트폴리오 기반 플랜 생성
         List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
         if (portfolios.isEmpty()) {
             throw new PortfolioNotSetException();
@@ -81,17 +89,14 @@ public class TransferPlanService {
         int year  = LocalDate.now().getYear();
         int month = LocalDate.now().getMonthValue();
 
-        // 3. 기존 미확인 계획 삭제
-        transferPlanRepository.deleteByUserIdAndYearAndMonthAndIsConfirmedFalse(
-                userId, year, month);
+        // 기존 미확인 계획 삭제
+        transferPlanRepository.deleteByUserIdAndYearAndMonthAndIsConfirmedFalse(userId, year, month);
 
         List<TransferPlans> plans = new ArrayList<>();
 
-        // ────────────────────────────────────────
-        // 4-A. portfolios → 계획 생성 (금액 직접 사용)
-        // ────────────────────────────────────────
+        // 3-1. portfolios → asset_amount 기반 플랜
         List<TransferPlans> portfolioPlans = portfolios.stream()
-                .filter(p -> p.getAsset() != null)      // 계좌가 연동된 항목만 (미연동이면 이체 불가)
+                .filter(p -> p.getAsset() != null)
                 .filter(p -> !p.getAsset().getId().equals(user.getAutoTransferToAssetId()))
                 .map(p -> TransferPlans.builder()
                         .user(user)
@@ -104,53 +109,34 @@ public class TransferPlanService {
                         .month(month)
                         .build())
                 .toList();
-
         plans.addAll(portfolioPlans);
 
-        // ────────────────────────────────────────
-        // 4-B. portfolio_items → 주채예 계획 생성
-        // 투자 금액 = 급여 - portfolios 합계
-        // ────────────────────────────────────────
-        Long portfoliosTotal = portfolios.stream()
-                .mapToLong(Portfolios::getAssetAmount)
-                .sum();
+        // 3-2. portfolio_flow_items (startedAt IS NOT NULL인 흐름) → amount 기반 플랜
+        List<PortfolioFlowItems> flowItems = portfolioFlowItemRepository
+                .findActiveFlowItemsWithAmountByUserId(userId);
 
-        Long investAmount = user.getMonthlyInvestAmount() != null
-                ? user.getMonthlyInvestAmount()
-                : monthlySalary - portfoliosTotal;
-
-        if (investAmount > 0) {
-            List<PortfolioItems> portfolioItems = portfolioItemRepository
-                    .findByUserIdAndEventIsNullOrderByCreatedAtDesc(userId);
-
-            List<TransferPlans> itemPlans = portfolioItems.stream()
-                    .filter(pi -> pi.getAsset() != null)  // 계좌 연동된 것만
-                    .filter(pi -> !pi.getAsset().getId().equals(user.getAutoTransferToAssetId()))
-                    .map(pi -> {
-                        Long amount = investAmount * pi.getProductRatio() / 100;  // 비율로 계산
-                        return TransferPlans.builder()
-                                .user(user)
-                                .asset(pi.getAsset())
-                                .assetType(convertToCategory(pi.getProductType()))
-                                .plannedAmount(amount)
-                                .isConfirmed(false)
-                                .scheduledDate(user.getSalaryDate())
-                                .year(year)
-                                .month(month)
-                                .build();
-                    })
-                    .toList();
-
-            plans.addAll(itemPlans);
-        }
+        List<TransferPlans> flowItemPlans = flowItems.stream()
+                .filter(pi -> !pi.getAsset().getId().equals(user.getAutoTransferToAssetId()))
+                .map(pi -> TransferPlans.builder()
+                        .user(user)
+                        .asset(pi.getAsset())
+                        .assetType(mapAccountTypeToCategory(pi.getAsset().getAssetType()))
+                        .plannedAmount(pi.getAmount())
+                        .isConfirmed(false)
+                        .scheduledDate(user.getSalaryDate())
+                        .year(year)
+                        .month(month)
+                        .build())
+                .toList();
+        plans.addAll(flowItemPlans);
 
         transferPlanRepository.saveAll(plans);
 
-        // 5. 알림 발송
-        Long totalAmount = plans.stream()
-                .mapToLong(TransferPlans::getPlannedAmount)
-                .sum();
+        // user.salary 갱신
+        user.updateSalary(monthlySalary);
 
+        // 알림 저장
+        Long totalAmount = plans.stream().mapToLong(TransferPlans::getPlannedAmount).sum();
         notificationRepository.save(Notifications.builder()
                 .user(user)
                 .type(Notifications.NotificationType.SALARY_REBALANCING)
@@ -162,17 +148,20 @@ public class TransferPlanService {
                 .sentAt(LocalDateTime.now())
                 .build());
 
-        log.info("[TransferPlanService] 이체 계획 생성 완료 — userId: {}, 급여: {}원, portfolios: {}건, items: {}건",
-                userId, monthlySalary, portfolioPlans.size(), plans.size() - portfolioPlans.size());
+        log.info("[TransferPlanService] 이체 계획 생성 완료 — userId: {}, 급여: {}원, portfolios: {}건, flowItems: {}건",
+                userId, monthlySalary, portfolioPlans.size(), flowItemPlans.size());
 
         return toListResponse(plans, monthlySalary);
     }
 
-    private AssetCategory convertToCategory(PortfolioItems.ProductType type) {
-        return switch (type) {
-            case STOCK   -> AssetCategory.STOCK;
-            case BOND    -> AssetCategory.BOND;
+    private AssetCategory mapAccountTypeToCategory(Assets.AccountType accountType) {
+        if (accountType == null) return AssetCategory.CASH;
+        return switch (accountType) {
+            case SAVINGS -> AssetCategory.FIXED;
             case DEPOSIT -> AssetCategory.DEPOSIT;
+            case STOCK   -> AssetCategory.STOCK;
+            case IRP, ISA -> AssetCategory.IRP;
+            default      -> AssetCategory.CASH;
         };
     }
 

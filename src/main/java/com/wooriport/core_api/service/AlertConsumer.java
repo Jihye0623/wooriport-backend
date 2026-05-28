@@ -3,6 +3,7 @@ package com.wooriport.core_api.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.Notifications;
+import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class AlertConsumer {
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
     private final AssetRepository assetRepository;
+    private final UserRepository userRepository;
     private final TransferPlanService transferPlanService;
 
     // ──────────────────────────────────────
@@ -81,6 +83,10 @@ public class AlertConsumer {
                 if (asset == null) return;
 
                 UUID userId = asset.getUser().getId();
+
+                // autoTransferToAssetId로 설정된 계좌로 들어온 급여인지 확인
+                Users user = userRepository.findById(userId).orElse(null);
+                if (user == null || !asset.getId().equals(user.getAutoTransferToAssetId())) return;
 
                 // 이체 계획 자동 생성 (트랜잭션 분리)
                 try {

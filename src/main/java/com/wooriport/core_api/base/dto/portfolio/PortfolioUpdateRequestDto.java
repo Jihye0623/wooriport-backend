@@ -9,6 +9,7 @@ import java.util.UUID;
 public class PortfolioUpdateRequestDto {
 
     private Long monthlyInvestAmount;   // 투자할 돈 (users.monthly_invest_amount)
+    private Long salary;                // 월급 (users.salary)
 
     @NotNull
     private List<PortfolioItem> portfolios;
