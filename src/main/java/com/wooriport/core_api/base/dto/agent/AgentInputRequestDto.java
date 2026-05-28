@@ -6,6 +6,12 @@ import lombok.Getter;
 @Getter
 public class AgentInputRequestDto {
 
-    @NotBlank(message = "이벤트 내용을 입력해주세요.")
-    private String userInput;  // "일본 여행 가고 싶어. 12월까지 150만원 모으고 싶어"
+    @NotBlank(message = "목표 이름을 입력해주세요.")
+    private String title;
+
+    @NotBlank(message = "목표 금액을 입력해주세요.")
+    private String targetAmount;
+
+    @NotBlank(message = "목표 마감일을 입력해주세요.")
+    private String deadline;
 }
