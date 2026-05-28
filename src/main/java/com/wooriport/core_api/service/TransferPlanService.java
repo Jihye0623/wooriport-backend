@@ -11,13 +11,17 @@ import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,10 @@ public class TransferPlanService {
     private final PortfolioRepository portfolioRepository;
     private final TransferExecutionRepository transferExecutionRepository;
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
+    private final WebClient webClient;
+
+    @Value("${flask.ml-url}")
+    private String flaskMlUrl;
 
     // ──────────────────────────────────────
     // GET /transfer-plans
@@ -72,15 +80,11 @@ public class TransferPlanService {
 
         Long monthlySalary = salaryTx.getAmount();
 
-        // 2-1. 이전 급여 대비 ±5만원 이내면 fastAPI 호출 예정 (현재 미구현, 3번 흐름으로 진행)
-        boolean isSameRange = user.getSalary() != null &&
-                Math.abs(monthlySalary - user.getSalary()) <= 50_000L;
-        if (isSameRange) {
-            // TODO: fastAPI /salary POST 요청 → AI 리밸런싱 계획 수신 후 2-2 처리
-            log.info("[generateFromSalary] 급여 유사 범위 감지(±5만원) — fastAPI 연동 예정, 3번 흐름으로 진행");
-        }
+        // 2-1. 이전 급여 대비 ±5만원 초과 변동 여부 확인
+        boolean isOutOfRange = user.getSalary() != null &&
+                Math.abs(monthlySalary - user.getSalary()) >= 50_000L;
 
-        // 3번: 포트폴리오 기반 플랜 생성
+        // 3번: 포트폴리오 기반 플랜 생성 (항상)
         List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
         if (portfolios.isEmpty()) {
             throw new PortfolioNotSetException();
@@ -130,6 +134,17 @@ public class TransferPlanService {
                 .toList();
         plans.addAll(flowItemPlans);
 
+        // 2-2. ±5만원 초과 변동 시 FastAPI /salary로 금액 조정
+        String rebalanceComment = null;
+        if (isOutOfRange && !plans.isEmpty()) {
+            Long salaryDiff = monthlySalary - user.getSalary();
+            Map<String, Object> aiRes = callSalaryApi(userId, salaryDiff, plans);
+            if (aiRes != null) {
+                rebalanceComment = applyAiRebalancing(plans, aiRes);
+                log.info("[generateFromSalary] AI 리밸런싱 적용 — salaryDiff: {}원", salaryDiff);
+            }
+        }
+
         transferPlanRepository.saveAll(plans);
 
         // user.salary 갱신
@@ -137,13 +152,16 @@ public class TransferPlanService {
 
         // 알림 저장
         Long totalAmount = plans.stream().mapToLong(TransferPlans::getPlannedAmount).sum();
+        String notifContent = rebalanceComment != null
+                ? rebalanceComment
+                : String.format("이번 달 급여 %,d원 기준으로 %d개 계좌에 총 %,d원 이체 계획이 생성됐어요. 확인 후 실행해주세요.",
+                        monthlySalary, plans.size(), totalAmount);
+
         notificationRepository.save(Notifications.builder()
                 .user(user)
                 .type(Notifications.NotificationType.SALARY_REBALANCING)
                 .title("월급 리밸런싱 계획이 준비됐어요")
-                .content(String.format(
-                        "이번 달 급여 %,d원 기준으로 %d개 계좌에 총 %,d원 이체 계획이 생성됐어요. 확인 후 실행해주세요.",
-                        monthlySalary, plans.size(), totalAmount))
+                .content(notifContent)
                 .isRead(false)
                 .sentAt(LocalDateTime.now())
                 .build());
@@ -165,6 +183,61 @@ public class TransferPlanService {
         };
     }
 
+    // FastAPI POST /salary 호출
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> callSalaryApi(UUID userId, Long salaryDiff, List<TransferPlans> plans) {
+        try {
+            List<Map<String, Object>> rebalanceList = plans.stream()
+                    .map(p -> {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("asset_id", p.getAsset().getId().toString());
+                        String category = p.getAsset().getAccountPurpose() != null
+                                ? p.getAsset().getAccountPurpose()
+                                : p.getAssetType().name();
+                        m.put("category", category);
+                        m.put("amount", p.getPlannedAmount());
+                        return m;
+                    })
+                    .collect(Collectors.toList());
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("user_id", userId.toString());
+            body.put("salary_diff", salaryDiff);
+            body.put("salary_rebalance", rebalanceList);
+
+            return webClient.post()
+                    .uri(flaskMlUrl + "/salary/")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+        } catch (Exception e) {
+            log.warn("[generateFromSalary] FastAPI /salary 호출 실패 — 3번 플랜 유지: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    // AI 응답으로 플랜 금액 업데이트, rebalance_comment 반환
+    @SuppressWarnings("unchecked")
+    private String applyAiRebalancing(List<TransferPlans> plans, Map<String, Object> aiRes) {
+        List<Map<String, Object>> aiRebalance = (List<Map<String, Object>>) aiRes.get("salary_rebalance");
+        if (aiRebalance != null) {
+            Map<UUID, Long> aiAmounts = aiRebalance.stream()
+                    .filter(m -> m.get("asset_id") != null && m.get("amount") != null)
+                    .collect(Collectors.toMap(
+                            m -> UUID.fromString((String) m.get("asset_id")),
+                            m -> ((Number) m.get("amount")).longValue(),
+                            (a, b) -> a));
+
+            plans.forEach(p -> {
+                Long aiAmount = aiAmounts.get(p.getAsset().getId());
+                if (aiAmount != null) {
+                    p.updatePlannedAmount(aiAmount);
+                }
+            });
+        }
+        return (String) aiRes.get("rebalance_comment");
+    }
 
     // 2. 확인 → 즉시 실행 (기존 confirm-all 대체)
     @Transactional
