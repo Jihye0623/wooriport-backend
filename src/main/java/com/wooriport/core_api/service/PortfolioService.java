@@ -7,7 +7,6 @@ import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.PortfolioRepository;
-import com.wooriport.core_api.repository.TransactionRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +23,6 @@ import java.util.stream.Collectors;
 public class PortfolioService {
 
     private final PortfolioRepository portfolioRepository;
-    private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
 
@@ -36,16 +34,10 @@ public class PortfolioService {
 
         List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
 
-        // 최근 급여 금액 (없으면 0)
-        Long salaryAmount = transactionRepository
-                .findLatestSalaryTransaction(userId)
-                .map(tx -> tx.getAmount())
-                .orElse(0L);
-
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
 
-        return toResponse(portfolios, salaryAmount, user.getMonthlyInvestAmount());
+        return toResponse(portfolios, user.getMonthlyInvestAmount(), user.getSalary());
     }
 
     // ──────────────────────────────────────
@@ -89,21 +81,16 @@ public class PortfolioService {
 
         portfolioRepository.saveAll(saved);
 
-        Long salaryAmount = transactionRepository
-                .findLatestSalaryTransaction(userId)
-                .map(tx -> tx.getAmount())
-                .orElse(0L);
-
         log.info("[PortfolioService] 포트폴리오 수정 완료 — userId: {}, {}개, monthlyInvestAmount: {}",
                 userId, saved.size(), user.getMonthlyInvestAmount());
 
-        return toResponse(saved, salaryAmount, user.getMonthlyInvestAmount());
+        return toResponse(saved, user.getMonthlyInvestAmount(), user.getSalary());
     }
 
     // ──────────────────────────────────────
     // 공통 변환
     // ──────────────────────────────────────
-    private PortfolioListResponseDto toResponse(List<Portfolios> portfolios, Long salaryAmount, Long monthlyInvestAmount) {
+    private PortfolioListResponseDto toResponse(List<Portfolios> portfolios, Long monthlyInvestAmount, Long salary) {
 
         Long totalAmount = portfolios.stream()
                 .mapToLong(Portfolios::getAssetAmount)
@@ -126,6 +113,7 @@ public class PortfolioService {
                 .portfolios(items)
                 .totalAmount(totalAmount)
                 .monthlyInvestAmount(monthlyInvestAmount)
+                .salary(salary)
                 .build();
     }
 }

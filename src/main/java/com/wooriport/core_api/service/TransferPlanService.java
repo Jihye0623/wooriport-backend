@@ -206,7 +206,7 @@ public class TransferPlanService {
             body.put("salary_rebalance", rebalanceList);
 
             return webClient.post()
-                    .uri(flaskMlUrl + "/salary/")
+                    .uri(flaskMlUrl + "/salary")
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(Map.class)
