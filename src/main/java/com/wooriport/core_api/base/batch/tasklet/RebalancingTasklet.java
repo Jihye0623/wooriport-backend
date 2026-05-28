@@ -51,14 +51,12 @@ public class RebalancingTasklet implements Tasklet {
                         .findById(user.getAutoTransferToAssetId())
                         .orElseThrow(() -> new IllegalStateException("우리은행 계좌 없음"));
 
-                Long totalBalance = wooriAsset.getBalance();
-
-                if (totalBalance <= 0) {
+                if (wooriAsset.getBalance() <= 0) {
                     log.warn("[Step2 Rebalancing] 우리은행 잔액 없음 — userId: {}", user.getId());
                     continue;
                 }
 
-                // 2. portfolios 비율대로 각 계좌에 분배
+                // 2. portfolios 금액대로 각 계좌에 분배
                 List<Portfolios> portfolios = portfolioRepository.findByUserId(user.getId());
 
                 if (portfolios.isEmpty()) {
@@ -79,7 +77,7 @@ public class RebalancingTasklet implements Tasklet {
                         continue;
                     }
 
-                    Long amount = totalBalance * portfolio.getAssetAmount() / 100;
+                    Long amount = portfolio.getAssetAmount();
 
                     if (amount <= 0) continue;
 
