@@ -2,6 +2,7 @@ package com.wooriport.core_api.repository;
 
 import com.wooriport.core_api.domain.PortfolioFlowItems;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,4 +21,9 @@ public interface PortfolioFlowItemRepository extends JpaRepository<PortfolioFlow
           AND pi.stepType = com.wooriport.core_api.domain.PortfolioFlowItems.StepType.PUT
         """)
     List<PortfolioFlowItems> findAllPutByUserIdWithAsset(@Param("userId") UUID userId);
+
+    // PATCH 시 기존 items 일괄 삭제 후 재생성
+    @Modifying
+    @Query("DELETE FROM PortfolioFlowItems pi WHERE pi.flow.id = :flowId")
+    void deleteByFlowId(@Param("flowId") UUID flowId);
 }

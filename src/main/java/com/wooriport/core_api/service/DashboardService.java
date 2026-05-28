@@ -55,7 +55,8 @@ public class DashboardService {
             Assets.AccountType.CMA);
     private static final Set<Assets.AccountType> INVESTMENT_TYPES = Set.of(
             Assets.AccountType.STOCK,
-            Assets.AccountType.IRP);
+            Assets.AccountType.IRP,
+            Assets.AccountType.ISA);
 
     @Transactional(readOnly = true)
     public DashboardResponseDto getDashboard(UUID userId) {

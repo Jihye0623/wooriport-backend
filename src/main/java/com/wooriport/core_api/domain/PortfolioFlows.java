@@ -35,9 +35,13 @@ public class PortfolioFlows extends BaseEntity {
     @Column(name = "title", nullable = false, length = 50)
     private String title;
 
-    // 우선순위
-    @Column(name = "priority")
-    private Integer priority;
+    // 한 줄 요약 (예: "비상금·생활비 베이스를 단단히 다져요")
+    @Column(name = "summary", length = 200)
+    private String summary;
+
+    // 흐름 성격: '단' / '중' / '장'
+    @Column(name = "term", length = 50)
+    private String term;
 
     // step2 — 모을 통장 (단일)
     @ManyToOne(fetch = FetchType.LAZY)
@@ -78,9 +82,14 @@ public class PortfolioFlows extends BaseEntity {
         this.title = title;
     }
 
-    // 우선순위 수정
-    public void updatePriority(Integer priority) {
-        this.priority = priority;
+    // 한 줄 요약 수정
+    public void updateSummary(String summary) {
+        this.summary = summary;
+    }
+
+    // 기간 수정 (단/중/장)
+    public void updateTerm(String term) {
+        this.term = term;
     }
 
     // 모을 통장 변경
