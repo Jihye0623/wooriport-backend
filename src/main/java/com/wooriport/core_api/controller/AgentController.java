@@ -56,6 +56,23 @@ public class AgentController {
     }
 
     @Operation(
+            summary = "AI 자산 처방전 생성",
+            description = """
+            PrescriptionComplete 화면 진입 시 호출됩니다.
+            사용자의 invest_amount / porti / 보유 자산 / 상품 카탈로그를 FastAPI(/asset-portfolio)에 넘겨
+            investment_flows를 생성받아 portfolio_flows + portfolio_flow_items 테이블에 저장합니다.
+            """
+    )
+    @PostMapping("/prescriptions")
+    public ResponseEntity<ResponseDTO<Void>> generatePrescriptions(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        agentService.generatePrescriptions(userDetails.getUserId());
+        return ResponseEntity.ok(ResponseDTO.success(200,
+                "AI 포트폴리오 분석 및 생성 완료", null));
+    }
+
+    @Operation(
             summary = "자연어 목표 구체화",
             description = "사용자의 자연어 입력을 AI가 분석해 목표 이름, 금액, 마감일을 반환합니다."
     )
