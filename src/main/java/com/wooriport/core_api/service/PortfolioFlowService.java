@@ -106,8 +106,13 @@ public class PortfolioFlowService {
 
         List<PortfolioFlowItems> saved = portfolioFlowItemRepository.saveAll(newItems);
 
-        log.info("[PortfolioFlowService] 흐름 수정 — userId={}, flowId={}, items={}",
-                userId, flowId, saved.size());
+        // "관리 시작하기" — 최초 활성화 시점에만 started_at 기록
+        if (flow.getStartedAt() == null) {
+            flow.activate();
+        }
+
+        log.info("[PortfolioFlowService] 흐름 수정 — userId={}, flowId={}, items={}, startedAt={}",
+                userId, flowId, saved.size(), flow.getStartedAt());
 
         // 4. 갱신된 flow 를 FlowDto 로 반환
         //    JPA 영속 컨텍스트의 flow 에 items 관계가 자동 동기화되지 않을 수 있어
