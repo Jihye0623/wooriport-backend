@@ -70,11 +70,15 @@ public class PortfolioService {
                         asset = assetRepository.findById(item.getAssetId())
                                 .orElseThrow(() -> new IllegalArgumentException(
                                         "계좌를 찾을 수 없습니다: " + item.getAssetId()));
+                        if (item.getAccountPurpose() != null) {
+                            asset.updateAccountPurpose(item.getAccountPurpose());
+                        }
                     }
 
                     return Portfolios.builder()
                             .user(user)
-                            .assetType(AssetCategory.valueOf(item.getAssetType())) .assetAmount(item.getAssetAmount())
+                            .assetType(AssetCategory.valueOf(item.getAssetType()))
+                            .assetAmount(item.getAssetAmount())
                             .asset(asset)
                             .build();
                 })
@@ -111,6 +115,7 @@ public class PortfolioService {
                         .institution(p.isLinked() ? p.getAsset().getInstitution() : null)
                         .assetNumber(p.isLinked() ? p.getAsset().getAssetNumber() : null)
                         .balance(p.isLinked() ? p.getAsset().getBalance() : null)
+                        .accountPurpose(p.isLinked() ? p.getAsset().getAccountPurpose() : null)
                         .build())
                 .collect(Collectors.toList());
 
