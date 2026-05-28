@@ -67,27 +67,41 @@ public class Reports extends BaseEntity {
 
     // AI 생성 텍스트
     @Column(name = "portfolio_comment", columnDefinition = "TEXT")
-    private String portfolioComment;
+    private String portfolioComment;        // trend_comment
+
+    @Column(name = "event_comment", columnDefinition = "TEXT")
+    private String eventComment;
 
     @Column(name = "market_summary", columnDefinition = "TEXT")
-    private String marketSummary;
+    private String marketSummary;           // market_condition
 
     @Column(name = "next_month_guideline", columnDefinition = "TEXT")
-    private String nextMonthGuideline;
+    private String nextMonthGuideline;      // guideline
+
+    @Column(name = "performance_status", length = 20)
+    private String performanceStatus;
+
+    @Column(name = "performance_comment", columnDefinition = "TEXT")
+    private String performanceComment;
+
+    // 목표 달성률 (0~100, 이벤트 없으면 null)
+    @Column(name = "goal_progress")
+    private Integer goalProgress;
+
+    // 주별 총자산 스냅샷 JSON (프론트 그래프용)
+    // [{"snapshotDate":"2026-03-07","totalAmount":15000000}, ...]
+    @Column(name = "asset_snapshots_json", columnDefinition = "TEXT")
+    private String assetSnapshotsJson;
+
+    // 주별 누적 소비 JSON (이번달 vs 전달 비교 꺾은선 그래프용)
+    // [{"week":1,"currCumulative":150000,"prevCumulative":120000}, ...]
+    @Column(name = "weekly_expenses_json", columnDefinition = "TEXT")
+    private String weeklyExpensesJson;
 
     // 카테고리별 소비 (양방향)
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ReportCategoryExpenses> categoryExpenses = new ArrayList<>();
-
-    // AI 텍스트 업데이트 (Flask 응답 수신 시)
-    public void updateAiComments(String portfolioComment,
-                                 String marketSummary,
-                                 String nextMonthGuideline) {
-        this.portfolioComment   = portfolioComment;
-        this.marketSummary      = marketSummary;
-        this.nextMonthGuideline = nextMonthGuideline;
-    }
 
     // 자산 변화 저장
     public void updateAssetChanges(Long prevTotal,   Long currTotal,

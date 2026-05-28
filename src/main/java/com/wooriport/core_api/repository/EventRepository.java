@@ -20,11 +20,13 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
         """)
     List<Event> findByUserIdOrderByCreatedAtDesc(@Param("userId") UUID userId);
 
-    // 현재 대시보드에 반영된 이벤트 (최대 1개 활성화)
+    // 가장 최근 활성 이벤트 1개
     @Query("""
         SELECT e FROM Event e
         WHERE e.user.id = :userId
           AND e.deletedAt IS NULL
+        ORDER BY e.createdAt DESC
+        LIMIT 1
         """)
     Optional<Event> findActiveByUserId(@Param("userId") UUID userId);
 
