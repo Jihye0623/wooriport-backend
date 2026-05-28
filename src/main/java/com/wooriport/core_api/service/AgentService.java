@@ -325,7 +325,7 @@ public class AgentService {
 
     
     // ──────────────────────────────────────
-    // POST /agent/goal
+    // POST /agent/event/input
     // 자연어 목표 입력 → AI가 목표 구체화
     // ──────────────────────────────────────
     public AgentGoalResponseDto goal(UUID userId, AgentGoalRequestDto request) {
@@ -345,7 +345,7 @@ public class AgentService {
 
 
     // ──────────────────────────────────────
-    // POST /agent/rebalacne
+    // POST /agent/event/rebalacne
     // 구체화된 목표 → 리밸런싱 재추천 + diff
     // ──────────────────────────────────────
     @Transactional(readOnly = true)
