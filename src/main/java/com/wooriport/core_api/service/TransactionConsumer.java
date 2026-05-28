@@ -21,6 +21,7 @@ public class TransactionConsumer {
     private final ObjectMapper objectMapper;
     private final AssetRepository assetRepository;
     private final TransactionRepository transactionRepository;
+    private final TransferPlanService transferPlanService;
 
     @KafkaListener(topics = "transaction-events", groupId = "approval-detect-group")
     @Transactional
@@ -60,5 +61,25 @@ public class TransactionConsumer {
         log.info("거래 적재 — user={}, asset={}, amount={}, category={}, sender={}",
                 user.getName(), asset.getAssetNumber(),
                 amount, event.getCategory(), event.getSenderName());
+
+        // 급여 입금 감지 → 이체 계획 자동 생성
+        if (isSalary(event.getCategory())
+                && event.getAmount() > 0
+                && asset.getId().equals(user.getAutoTransferToAssetId())) {
+            try {
+                transferPlanService.generateFromSalary(user.getId());
+                log.info("[TransactionConsumer] 급여 감지 → 이체 계획 생성 — userId: {}", user.getId());
+            } catch (Exception e) {
+                log.error("[TransactionConsumer] 이체 계획 생성 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage());
+            }
+        }
+    }
+
+    private boolean isSalary(String category) {
+        if (category == null) return false;
+        return category.contains("급여")
+                || category.contains("월급")
+                || category.contains("임금")
+                || category.contains("salary");
     }
 }
