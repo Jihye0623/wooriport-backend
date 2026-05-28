@@ -39,10 +39,6 @@ public class Event extends SoftDeleteEntity {
     @Builder.Default
     private EventStatus status = EventStatus.ACTIVE;
 
-    // AI가 생성한 목표 요약 메시지
-    @Column(name = "summary_message", columnDefinition = "TEXT")
-    private String summaryMessage;
-
     // 자연어 원문 ("일본 여행 가고 싶어")
     @Column(name = "event_description", columnDefinition = "TEXT")
     private String eventDescription;

@@ -14,7 +14,6 @@ public class EventDetailResponseDto {
     private int achievementRate;     // 달성률 (%)
     private String deadline;
     private String status;           // ACTIVE / COMPLETED / CANCELLED / EXPIRED
-    private String summaryMessage;   // AI 요약 메시지
     private String eventDescription; // 자연어 원문
     private Boolean isShortTerm;     // 6개월 이하 여부
 }
