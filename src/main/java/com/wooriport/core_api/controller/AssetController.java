@@ -121,4 +121,17 @@ public class AssetController {
         return ResponseEntity.ok(
                 ResponseDTO.success(200, "총 자산 요약 조회 성공", data));
     }
+
+    @Operation(summary = "자동이체 실행일(월급날) 설정",
+            description = "매월 자동 리밸런싱(이체)이 실행될 날짜를 지정합니다. Users 테이블의 salary_date 값을 업데이트합니다.")
+    @PatchMapping("/scheduled-date")
+    public ResponseEntity<ResponseDTO<Void>> updateScheduledDate(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody ScheduledDateRequestDto request) {
+
+        assetService.updateScheduledDate(userDetails.getUserId(), request);
+
+        return ResponseEntity.ok(
+                ResponseDTO.success(200, "자동이체 실행일 설정 성공", null));
+    }
 }

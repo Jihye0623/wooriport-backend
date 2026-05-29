@@ -304,7 +304,7 @@ public class AssetService {
                 .build();
     }
 
-    // PATCH /transfer-plans/scheduled-date
+    // PATCH /assets/scheduled-date
     // 자동이체 실행일 설정 → users.salary_date 저장
     @Transactional
     public void updateScheduledDate(UUID userId, ScheduledDateRequestDto request) {

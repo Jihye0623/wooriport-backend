@@ -1,7 +1,5 @@
 package com.wooriport.core_api.controller;
 
-
-import com.wooriport.core_api.base.dto.asset.ScheduledDateRequestDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.base.dto.transfer.TransferExecuteResultDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
@@ -19,7 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
+import java.util.List;
 
 @Tag(name = "Transfer Plan", description = "이체(리밸런싱) 계획 관리 API")
 @RestController
@@ -63,17 +61,18 @@ public class TransferPlanController {
     }
 
     /**
-     * PATCH /api/v1/transfer-plans/{id}
-     * 이체 계획 단건 수정 (금액 변경 시 is_confirmed 자동 FALSE)
+     * PATCH /api/v1/transfer-plans?year=2025&month=5
+     * 이체 계획 일괄 수정 (assetId + amount 쌍 리스트)
      */
-    @Operation(summary = "이체 계획 단건 금액 수정", description = "특정 이체 계획의 금액을 수정합니다. AI 제안 금액을 사용자가 변경할 때 호출되며, 금액 변경 시 확정 상태(is_confirmed)가 자동으로 대기(FALSE) 상태로 전환됩니다.")
-    @PatchMapping("/{id}")
-    public ResponseEntity<ResponseDTO<Void>> updateTransferPlan(
+    @Operation(summary = "이체 계획 금액 일괄 수정", description = "assetId와 수정 금액 쌍의 리스트를 받아 해당 월 이체 계획을 일괄 수정합니다. 금액 변경 시 is_confirmed가 자동으로 FALSE로 전환됩니다.")
+    @PatchMapping
+    public ResponseEntity<ResponseDTO<Void>> updateTransferPlans(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable UUID id,
-            @RequestBody TransferPlanUpdateRequestDto request) {
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestBody @Valid List<TransferPlanUpdateRequestDto> requests) {
 
-        transferPlanService.updateTransferPlan(userDetails.getUserId(), id, request);
+        transferPlanService.updateTransferPlans(userDetails.getUserId(), year, month, requests);
 
         return ResponseEntity.ok(
                 ResponseDTO.success(200, "이체 계획 수정 성공", null));
@@ -97,16 +96,4 @@ public class TransferPlanController {
                 transferPlanService.confirmAndExecute(userDetails.getUserId(), year, month)));
     }
 
-    @Operation(summary = "자동이체 실행일(월급날) 설정",
-            description = "매월 자동 리밸런싱(이체)이 실행될 날짜를 지정합니다. Users 테이블의 salary_date 값을 업데이트합니다.")
-    @PatchMapping("/scheduled-date")
-    public ResponseEntity<ResponseDTO<Void>> updateScheduledDate(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody ScheduledDateRequestDto request) {
-
-        assetService.updateScheduledDate(userDetails.getUserId(), request);
-
-        return ResponseEntity.ok(
-                ResponseDTO.success(200, "자동이체 실행일 설정 성공", null));
-    }
 }
