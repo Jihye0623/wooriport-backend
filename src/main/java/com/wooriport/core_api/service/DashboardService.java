@@ -83,7 +83,7 @@ public class DashboardService {
         return DashboardResponseDto.builder()
                 .user(buildUser(user))
                 .assetsSummary(buildAssetsSummary(assets))
-                .salaryPlan(buildSalaryPlan(portfolios))
+                .salaryPlan(buildSalaryPlan(user, portfolios))
                 .events(buildEvents(userId, events, today))
                 .consumption(buildConsumption(month, categoryRows, monthlyExpenses, portfolios))
                 .portfolio(buildPortfolio(flowPutItems, rateByLabel))
@@ -121,10 +121,9 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardResponseDto.SalaryPlan buildSalaryPlan(List<Portfolios> portfolios) {
-        long monthlyIncome = portfolios.stream()
-                .mapToLong(p -> p.getAssetAmount() == null ? 0L : p.getAssetAmount())
-                .sum();
+    private DashboardResponseDto.SalaryPlan buildSalaryPlan(Users user, List<Portfolios> portfolios) {
+        long monthlyIncome     = user.getSalary() == null ? 0L : user.getSalary();
+        long investmentAmount  = user.getMonthlyInvestAmount() == null ? 0L : user.getMonthlyInvestAmount();
 
         List<DashboardResponseDto.Allocation> allocations = portfolios.stream()
                 .map(p -> DashboardResponseDto.Allocation.builder()
@@ -133,8 +132,15 @@ public class DashboardService {
                         .build())
                 .toList();
 
+        long allocatedSum = allocations.stream()
+                .mapToLong(a -> a.getPlannedAmount() == null ? 0L : a.getPlannedAmount())
+                .sum();
+        long surplus = monthlyIncome - allocatedSum - investmentAmount;
+
         return DashboardResponseDto.SalaryPlan.builder()
                 .monthlyIncome(monthlyIncome)
+                .investmentAmount(investmentAmount)
+                .surplus(surplus)
                 .allocations(allocations)
                 .build();
     }
