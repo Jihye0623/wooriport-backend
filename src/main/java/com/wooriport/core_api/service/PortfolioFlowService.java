@@ -49,7 +49,9 @@ public class PortfolioFlowService {
             throw new IllegalArgumentException("해당 흐름에 대한 권한이 없습니다.");
         }
 
-        // 2. gathering 갱신
+        // 2. flow.amount + gathering 갱신
+        flow.updateAmount(request.getAmount());
+
         Assets newGathering = null;
         if (request.getGatheringAssetId() != null) {
             newGathering = assetRepository.findByIdAndUserId(request.getGatheringAssetId(), userId)
