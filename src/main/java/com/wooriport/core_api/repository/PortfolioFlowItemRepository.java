@@ -24,15 +24,17 @@ public interface PortfolioFlowItemRepository extends JpaRepository<PortfolioFlow
         """)
     List<PortfolioFlowItems> findAllPutByUserIdWithAsset(@Param("userId") UUID userId);
 
-    // 급여 리밸런싱 3-2: startedAt이 설정된(활성) 흐름의 PUT items 중 asset과 amount가 있는 항목
+    // 급여 리밸런싱 3-2: startedAt이 설정된(활성) 흐름의 PUT items 중 asset과 productRatio가 있는 항목
     @Query("""
         SELECT pi FROM PortfolioFlowItems pi
         LEFT JOIN FETCH pi.asset
+        LEFT JOIN FETCH pi.flow f
         WHERE pi.flow.user.id = :userId
           AND pi.flow.startedAt IS NOT NULL
           AND pi.stepType = com.wooriport.core_api.domain.PortfolioFlowItems.StepType.PUT
           AND pi.asset IS NOT NULL
-          AND pi.amount IS NOT NULL
+          AND pi.productRatio IS NOT NULL
+          AND pi.flow.amount IS NOT NULL
         """)
     List<PortfolioFlowItems> findActiveFlowItemsWithAmountByUserId(@Param("userId") UUID userId);
 

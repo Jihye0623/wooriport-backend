@@ -8,6 +8,7 @@ import com.wooriport.core_api.domain.DummyMydata;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.DummyMydataRepository;
+import com.wooriport.core_api.repository.TransactionRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class AssetService {
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
     private final DummyMydataRepository dummyMydataRepository;
+    private final TransactionRepository transactionRepository;
 
     @Transactional(readOnly = true)
     public MydataPreviewResponseDto previewMydata(UUID userId, List<String> institutions) {
@@ -220,9 +222,14 @@ public class AssetService {
 
         asset.markAsSalary();
 
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
+        // 해당 계좌의 최근 급여 트랜잭션 금액 → users.salary 저장
+        transactionRepository.findLatestSalaryTransactionByAssetId(asset.getId())
+                .ifPresent(tx -> user.updateSalary(tx.getAmount()));
+
         if (asset.isWooriBank()) {
-            Users user = userRepository.findById(userId)
-                    .orElseThrow(() -> new UserNotFoundException());
             user.connectAutoTransfer(asset.getId());
         }
 

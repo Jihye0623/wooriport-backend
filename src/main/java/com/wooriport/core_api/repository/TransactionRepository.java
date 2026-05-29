@@ -94,6 +94,21 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
     Optional<Transactions> findLatestSalaryTransaction(@Param("userId") UUID userId);
 
     @Query("""
+        SELECT t FROM Transactions t
+        WHERE t.asset.id = :assetId
+          AND t.amount > 0
+          AND (
+              t.category LIKE '%급여%'
+              OR t.category LIKE '%월급%'
+              OR t.category LIKE '%임금%'
+              OR t.category LIKE '%salary%'
+          )
+        ORDER BY t.transactionAt DESC
+        LIMIT 1
+        """)
+    Optional<Transactions> findLatestSalaryTransactionByAssetId(@Param("assetId") UUID assetId);
+
+    @Query("""
     SELECT t.category, COALESCE(SUM(ABS(t.amount)) / 3, 0) AS monthlyAvg
     FROM Transactions t
     WHERE t.user.id = :userId

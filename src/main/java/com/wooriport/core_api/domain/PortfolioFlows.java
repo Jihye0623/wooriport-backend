@@ -43,6 +43,10 @@ public class PortfolioFlows extends BaseEntity {
     @Column(name = "term", length = 50)
     private String term;
 
+    // PULL 총 금액 (끌어올 금액 합계 — PUT 비율 계산 기준)
+    @Column(name = "amount")
+    private Long amount;
+
     // step2 — 모을 통장 (단일)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "gathering_asset_id")
@@ -90,6 +94,10 @@ public class PortfolioFlows extends BaseEntity {
     // 기간 수정 (단/중/장)
     public void updateTerm(String term) {
         this.term = term;
+    }
+
+    public void updateAmount(Long amount) {
+        this.amount = amount;
     }
 
     // 모을 통장 변경

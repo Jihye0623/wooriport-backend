@@ -15,6 +15,9 @@ import java.util.UUID;
 @NoArgsConstructor
 public class PortfolioFlowUpdateRequestDto {
 
+    // 흐름 총 금액 (PUT 비율 계산 기준). null 허용
+    private Long amount;
+
     // 모으기 통장 (Step 2). null 허용 — 비워둘 수도 있음
     private UUID gatheringAssetId;
 

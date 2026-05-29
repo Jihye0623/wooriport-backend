@@ -125,7 +125,7 @@ public class TransferPlanService {
                         .user(user)
                         .asset(pi.getAsset())
                         .assetType(mapAccountTypeToCategory(pi.getAsset().getAssetType()))
-                        .plannedAmount(pi.getAmount())
+                        .plannedAmount(pi.getFlow().getAmount() * pi.getProductRatio() / 100)
                         .isConfirmed(false)
                         .scheduledDate(user.getSalaryDate())
                         .year(year)
