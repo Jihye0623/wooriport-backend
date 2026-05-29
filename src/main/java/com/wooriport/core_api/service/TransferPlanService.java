@@ -265,6 +265,7 @@ public class TransferPlanService {
         int successCount = 0;
         int failCount = 0;
         List<TransferExecutions> executions = new ArrayList<>();
+        List<Transactions> transactions = new ArrayList<>();
 
         for (TransferPlans plan : plans) {
 
@@ -298,10 +299,31 @@ public class TransferPlanService {
                     .status(TransferExecutions.ExecutionStatus.COMPLETED)
                     .executedAt(LocalDateTime.now())
                     .build());
+
+            // 5. 거래 내역 저장 (출금 / 입금)
+            LocalDateTime now = LocalDateTime.now();
+            transactions.add(Transactions.builder()
+                    .user(user)
+                    .asset(wooriAsset)
+                    .amount(-plan.getPlannedAmount())
+                    .category("이체")
+                    .senderName(plan.getAsset().getInstitution())
+                    .transactionAt(now)
+                    .build());
+            transactions.add(Transactions.builder()
+                    .user(user)
+                    .asset(plan.getAsset())
+                    .amount(plan.getPlannedAmount())
+                    .category("이체")
+                    .senderName(wooriAsset.getInstitution())
+                    .transactionAt(now)
+                    .build());
+
             successCount++;
         }
 
         transferExecutionRepository.saveAll(executions);
+        transactionRepository.saveAll(transactions);
 
         // 5. 완료 알림
         notificationRepository.save(Notifications.builder()
