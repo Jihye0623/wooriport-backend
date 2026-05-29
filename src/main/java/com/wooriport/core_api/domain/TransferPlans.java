@@ -42,10 +42,6 @@ public class TransferPlans extends SoftDeleteEntity {
     @Builder.Default
     private Boolean isConfirmed = false;
 
-    // 매월 며칠에 이체 (1~31)
-    @Column(name = "scheduled_date", nullable = false)
-    private Integer scheduledDate;
-
     @Column(name = "year", nullable = false)
     private Integer year;
 

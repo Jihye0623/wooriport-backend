@@ -146,15 +146,20 @@ public class TransferPlanService {
     }
 
     // ──────────────────────────────────────
-    // PATCH /transfer-plans/{id}
+    // PATCH /transfer-plans?year=&month=
     // ──────────────────────────────────────
     @Transactional
-    public void updateTransferPlan(UUID userId, UUID planId, TransferPlanUpdateRequestDto request) {
-        TransferPlans plan = transferPlanRepository.findByIdAndUserId(planId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("이체 계획을 찾을 수 없습니다."));
+    public void updateTransferPlans(UUID userId, int year, int month, List<TransferPlanUpdateRequestDto> requests) {
+        List<TransferPlans> plans = transferPlanRepository.findByUserIdAndYearAndMonth(userId, year, month);
 
-        if (request.getPlannedAmount() != null) {
-            plan.updatePlannedAmount(request.getPlannedAmount()); // 내부에서 isConfirmed = false
+        Map<UUID, TransferPlans> planByAssetId = plans.stream()
+                .collect(Collectors.toMap(p -> p.getAsset().getId(), Function.identity(), (a, b) -> a));
+
+        for (TransferPlanUpdateRequestDto req : requests) {
+            TransferPlans plan = planByAssetId.get(req.getAssetId());
+            if (plan != null) {
+                plan.updatePlannedAmount(req.getAmount());
+            }
         }
     }
 
@@ -199,7 +204,6 @@ public class TransferPlanService {
                         .assetType(p.getAssetType())
                         .plannedAmount(p.getAssetAmount())
                         .isConfirmed(false)
-                        .scheduledDate(user.getSalaryDate())
                         .year(year)
                         .month(month)
                         .build())
@@ -224,7 +228,6 @@ public class TransferPlanService {
                         .assetType(mapAccountTypeToCategory(pi.getAsset().getAssetType()))
                         .plannedAmount(pi.getFlow().getAmount() * pi.getProductRatio() / 100)
                         .isConfirmed(false)
-                        .scheduledDate(user.getSalaryDate())
                         .year(year)
                         .month(month)
                         .build())
@@ -433,7 +436,6 @@ public class TransferPlanService {
                         .assetType(p.getAssetType().name())
                         .plannedAmount(p.getPlannedAmount())
                         .isConfirmed(p.getIsConfirmed())
-                        .scheduledDate(p.getScheduledDate())
                         .year(p.getYear())
                         .month(p.getMonth())
                         .build())
@@ -458,7 +460,6 @@ public class TransferPlanService {
                         .assetType(p.getAssetType().name())
                         .plannedAmount(p.getPlannedAmount())
                         .isConfirmed(p.getIsConfirmed())
-                        .scheduledDate(p.getScheduledDate())
                         .year(p.getYear())
                         .month(p.getMonth())
                         .build())
