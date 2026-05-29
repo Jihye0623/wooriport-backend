@@ -2,6 +2,7 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.transfer.TransferExecuteResultDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
+import com.wooriport.core_api.base.dto.transfer.TransferPlanSummaryResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanUpdateRequestDto;
 import com.wooriport.core_api.base.exception.PortfolioNotSetException;
 import com.wooriport.core_api.base.exception.SalaryNotFoundException;
@@ -22,7 +23,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -47,11 +50,99 @@ public class TransferPlanService {
     // GET /transfer-plans
     // ──────────────────────────────────────
     @Transactional(readOnly = true)
-    public TransferPlanListResponseDto getTransferPlans(UUID userId, int year, int month) {
+    public TransferPlanSummaryResponseDto getTransferPlans(UUID userId, int year, int month) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
         List<TransferPlans> plans = transferPlanRepository
                 .findByUserIdAndYearAndMonth(userId, year, month);
 
-        return toListResponse(plans);
+        // 이번달 실제 월급
+        Long currentSalary = transactionRepository.findLatestSalaryTransaction(userId)
+                .map(Transactions::getAmount).orElse(user.getSalary());
+
+        // portfolios 기준값: assetId → Portfolios
+        Map<UUID, Portfolios> portfolioByAssetId = portfolioRepository.findByUserId(userId).stream()
+                .filter(p -> p.getAsset() != null)
+                .collect(Collectors.toMap(p -> p.getAsset().getId(), Function.identity(), (a, b) -> a));
+
+        // flow items 기준값: assetId → baselineAmount, assetId → flowItem
+        List<PortfolioFlowItems> flowItems = portfolioFlowItemRepository
+                .findActiveFlowItemsWithAmountByUserId(userId);
+        Map<UUID, Long> flowBaselineByAssetId = flowItems.stream()
+                .filter(pi -> pi.getAsset() != null
+                        && pi.getFlow().getAmount() != null
+                        && pi.getProductRatio() != null)
+                .collect(Collectors.toMap(
+                        pi -> pi.getAsset().getId(),
+                        pi -> pi.getFlow().getAmount() * pi.getProductRatio() / 100,
+                        (a, b) -> a));
+        Map<UUID, PortfolioFlowItems> flowItemByAssetId = flowItems.stream()
+                .filter(pi -> pi.getAsset() != null)
+                .collect(Collectors.toMap(pi -> pi.getAsset().getId(), Function.identity(), (a, b) -> a));
+
+        // 플랜을 portfolio / flow 로 분류
+        List<TransferPlanSummaryResponseDto.PortfolioPlanItem> portfolioItems = new ArrayList<>();
+        List<TransferPlanSummaryResponseDto.FlowPlanItem> flowPlanItems = new ArrayList<>();
+
+        for (TransferPlans plan : plans) {
+            UUID assetId = plan.getAsset().getId();
+
+            if (portfolioByAssetId.containsKey(assetId)) {
+                Long baseline = portfolioByAssetId.get(assetId).getAssetAmount();
+                portfolioItems.add(TransferPlanSummaryResponseDto.PortfolioPlanItem.builder()
+                        .planId(plan.getId())
+                        .assetId(assetId)
+                        .institution(plan.getAsset().getInstitution())
+                        .assetType(plan.getAssetType().name())
+                        .plannedAmount(plan.getPlannedAmount())
+                        .baselineAmount(baseline)
+                        .diff(plan.getPlannedAmount() - baseline)
+                        .isConfirmed(plan.getIsConfirmed())
+                        .build());
+
+            } else if (flowBaselineByAssetId.containsKey(assetId)) {
+                Long baseline = flowBaselineByAssetId.get(assetId);
+                PortfolioFlowItems fi = flowItemByAssetId.get(assetId);
+                flowPlanItems.add(TransferPlanSummaryResponseDto.FlowPlanItem.builder()
+                        .planId(plan.getId())
+                        .assetId(assetId)
+                        .institution(plan.getAsset().getInstitution())
+                        .productType(fi != null ? fi.getProductType() : null)
+                        .plannedAmount(plan.getPlannedAmount())
+                        .baselineAmount(baseline)
+                        .diff(plan.getPlannedAmount() - baseline)
+                        .isConfirmed(plan.getIsConfirmed())
+                        .build());
+            }
+        }
+
+        long portfolioTotal    = portfolioItems.stream().mapToLong(TransferPlanSummaryResponseDto.PortfolioPlanItem::getPlannedAmount).sum();
+        // plan 생성과 동일하게 auto-transfer 자산 제외
+        long portfolioBaseline = portfolioByAssetId.values().stream()
+                .filter(p -> !p.getAsset().getId().equals(user.getAutoTransferToAssetId()))
+                .mapToLong(Portfolios::getAssetAmount).sum();
+        long flowTotal         = flowPlanItems.stream().mapToLong(TransferPlanSummaryResponseDto.FlowPlanItem::getPlannedAmount).sum();
+
+        long salary              = currentSalary != null ? currentSalary : 0L;
+        long userSalary          = user.getSalary() != null ? user.getSalary() : 0L;
+        long monthlyInvestAmount = user.getMonthlyInvestAmount() != null ? user.getMonthlyInvestAmount() : 0L;
+        long remaining     = salary - portfolioTotal - flowTotal;
+        long baseRemaining = userSalary - portfolioBaseline - monthlyInvestAmount;
+        long remainingDiff = remaining - baseRemaining;
+
+        return TransferPlanSummaryResponseDto.builder()
+                .currentSalary(currentSalary)
+                .salaryDiff(currentSalary != null && user.getSalary() != null ? currentSalary - user.getSalary() : null)
+                .portfolioTotal(portfolioTotal)
+                .portfolioTotalDiff(portfolioTotal - portfolioBaseline)
+                .portfolioItems(portfolioItems)
+                .flowTotal(flowTotal)
+                .flowTotalDiff(user.getMonthlyInvestAmount() != null ? flowTotal - monthlyInvestAmount : null)
+                .flowItems(flowPlanItems)
+                .remaining(remaining)
+                .remainingDiff(remainingDiff)
+                .build();
     }
 
     // ──────────────────────────────────────
@@ -80,9 +171,9 @@ public class TransferPlanService {
 
         Long monthlySalary = salaryTx.getAmount();
 
-        // 2-1. 이전 급여 대비 ±5만원 초과 변동 여부 확인
+        // 2-1. 급여 감소 또는 +5만원 이상 증가 시 FastAPI 호출
         boolean isOutOfRange = user.getSalary() != null &&
-                Math.abs(monthlySalary - user.getSalary()) >= 50_000L;
+                (monthlySalary < user.getSalary() || monthlySalary - user.getSalary() >= 50_000L);
 
         // 3번: 포트폴리오 기반 플랜 생성 (항상)
         List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
@@ -119,8 +210,14 @@ public class TransferPlanService {
         List<PortfolioFlowItems> flowItems = portfolioFlowItemRepository
                 .findActiveFlowItemsWithAmountByUserId(userId);
 
+        Set<UUID> portfolioAssetIds = portfolios.stream()
+                .filter(p -> p.getAsset() != null)
+                .map(p -> p.getAsset().getId())
+                .collect(Collectors.toSet());
+
         List<TransferPlans> flowItemPlans = flowItems.stream()
                 .filter(pi -> !pi.getAsset().getId().equals(user.getAutoTransferToAssetId()))
+                .filter(pi -> !portfolioAssetIds.contains(pi.getAsset().getId()))
                 .map(pi -> TransferPlans.builder()
                         .user(user)
                         .asset(pi.getAsset())
@@ -146,9 +243,6 @@ public class TransferPlanService {
         }
 
         transferPlanRepository.saveAll(plans);
-
-        // user.salary 갱신
-        user.updateSalary(monthlySalary);
 
         // 알림 저장
         Long totalAmount = plans.stream().mapToLong(TransferPlans::getPlannedAmount).sum();

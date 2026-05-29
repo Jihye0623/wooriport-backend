@@ -5,6 +5,7 @@ import com.wooriport.core_api.base.dto.asset.ScheduledDateRequestDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.base.dto.transfer.TransferExecuteResultDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
+import com.wooriport.core_api.base.dto.transfer.TransferPlanSummaryResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanUpdateRequestDto;
 import com.wooriport.core_api.config.security.CustomUserDetails;
 import com.wooriport.core_api.service.AssetService;
@@ -50,18 +51,15 @@ public class TransferPlanController {
      * GET /api/v1/transfer-plans?year=2025&month=5
      * 특정 연/월의 이체 계획 목록 조회
      */
-    @Operation(summary = "월별 이체 계획 조회", description = "특정 연도와 월에 해당하는 이체(리밸런싱) 계획 목록을 조회합니다.")
+    @Operation(summary = "월별 이체 계획 조회", description = "이번달 월급 기준으로 portfolios / flow 분배 금액과 기준값 대비 diff를 반환합니다.")
     @GetMapping
-    public ResponseEntity<ResponseDTO<TransferPlanListResponseDto>> getTransferPlans(
+    public ResponseEntity<ResponseDTO<TransferPlanSummaryResponseDto>> getTransferPlans(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam int year,
             @RequestParam int month) {
 
-        TransferPlanListResponseDto data = transferPlanService.getTransferPlans(
-                userDetails.getUserId(), year, month);
-
-        return ResponseEntity.ok(
-                ResponseDTO.success(200, "이체 계획 목록 조회 성공", data));
+        return ResponseEntity.ok(ResponseDTO.success(200, "이체 계획 조회 성공",
+                transferPlanService.getTransferPlans(userDetails.getUserId(), year, month)));
     }
 
     /**
