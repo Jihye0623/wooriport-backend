@@ -34,6 +34,9 @@ public class Notifications extends BaseEntity {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "ai_comment", columnDefinition = "TEXT")
+    private String aiComment;
+
     @Column(name = "is_read", nullable = false)
     @Builder.Default
     private Boolean isRead = false;

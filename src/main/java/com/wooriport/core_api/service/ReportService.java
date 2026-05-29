@@ -32,6 +32,7 @@ public class ReportService {
     private final EventRepository eventRepository;
     private final TransactionRepository transactionRepository;
     private final PortfolioFlowRepository portfolioFlowRepository;
+    private final NotificationRepository notificationRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
 
@@ -217,6 +218,15 @@ public class ReportService {
 
         // 10. 카테고리별 소비 저장 (hover_description JSON 파싱 포함)
         saveCategoryExpenses(report, userId, txList, prevYear, prevMonth, res);
+
+        notificationRepository.save(Notifications.builder()
+                .user(user)
+                .type(Notifications.NotificationType.REPORT_READY)
+                .title(year + "년 " + month + "월 월간 리포트가 도착했어요!")
+                .content(user.getName() + "님의 한달 소비, 지출, 투자를 종합 분석했어요!")
+                .isRead(false)
+                .sentAt(LocalDateTime.now())
+                .build());
 
         log.info("[ReportJob] 완료 — userId: {}, {}년 {}월", userId, year, month);
     }

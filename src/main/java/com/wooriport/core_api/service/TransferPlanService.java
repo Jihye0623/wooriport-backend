@@ -256,18 +256,11 @@ public class TransferPlanService {
 
         transferPlanRepository.saveAll(plans);
 
-        // 알림 저장
-        Long totalAmount = plans.stream().mapToLong(TransferPlans::getPlannedAmount).sum();
-        String notifContent = rebalanceComment != null
-                ? rebalanceComment
-                : String.format("이번 달 급여 %,d원 기준으로 %d개 계좌에 총 %,d원 이체 계획이 생성됐어요. 확인 후 실행해주세요.",
-                        monthlySalary, plans.size(), totalAmount);
-
         notificationRepository.save(Notifications.builder()
                 .user(user)
                 .type(Notifications.NotificationType.SALARY_REBALANCING)
-                .title("월급 리밸런싱 계획이 준비됐어요")
-                .content(notifContent)
+                .title("월급이 들어왔네요!")
+                .content("새로 나눴어요! 확인하고 자동 이체할게요!")
                 .isRead(false)
                 .sentAt(LocalDateTime.now())
                 .build());
