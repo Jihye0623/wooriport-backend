@@ -36,6 +36,12 @@
         <producerConfig>retries=0</producerConfig>
     </appender>
 
+    <!-- Kafka 클라이언트 자체 로그는 KAFKA 앱펜더로 보내지 않음 (순환 참조 방지) -->
+    <logger name="org.apache.kafka" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
