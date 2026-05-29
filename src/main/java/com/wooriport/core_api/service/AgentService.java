@@ -275,11 +275,14 @@ public class AgentService {
         Map<String, Object> flaskResponse = callFlask("/portfolio/rebalance", flaskBody);
 
         // 7. Flask 응답 파싱
-        Long investAmount = ((Number) flaskResponse.get("invest_amount")).longValue();
+        Long investAmount = toLong(flaskResponse.get("invest_amount"));
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPlans =
                 (List<Map<String, Object>>) flaskResponse.get("salary_rebalance");
+        if (rawPlans == null) {
+            throw new IllegalStateException("Flask 응답에 salary_rebalance 필드가 없습니다.");
+        }
 
         // asset_id로 계좌 매핑
         Map<String, Assets> assetIdMap = assets.stream()
@@ -409,12 +412,15 @@ public class AgentService {
         Map<String, Object> flaskResponse = callFlask("/event/rebalance", flaskBody);
 
         // 7. Flask 응답 파싱
-        Long newInvestAmount = ((Number) flaskResponse.get("invest_amount")).longValue();
+        Long newInvestAmount = toLong(flaskResponse.get("invest_amount"));
         String rebalanceComment = (String) flaskResponse.get("rebalance_comment");
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPlans =
                 (List<Map<String, Object>>) flaskResponse.get("salary_rebalance");
+        if (rawPlans == null) {
+            throw new IllegalStateException("Flask 응답에 salary_rebalance 필드가 없습니다.");
+        }
 
         // 8. asset_id 기반으로 diff 계산 (amount 직접 사용)
         List<AgentInputResponseDto.RebalancingPlan> plans = rawPlans.stream()
