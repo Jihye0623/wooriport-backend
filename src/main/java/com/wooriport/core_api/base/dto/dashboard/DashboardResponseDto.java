@@ -36,7 +36,9 @@ public class DashboardResponseDto {
     @Getter
     @Builder
     public static class SalaryPlan {
-        private Long monthlyIncome;
+        private Long monthlyIncome;        // users.salary
+        private Long investmentAmount;     // users.monthly_invest_amount
+        private Long surplus;              // monthlyIncome - sum(allocations) - investmentAmount
         private List<Allocation> allocations;
     }
 

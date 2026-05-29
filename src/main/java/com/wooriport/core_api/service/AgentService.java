@@ -511,6 +511,7 @@ public class AgentService {
         flaskBody.put("invest_assets", investAssets);
         flaskBody.put("products", productsBody);
 
+        // mock 서버 경로 (/asset-portfolio). 실제 ai-server 붙일 땐 "/portfolio/asset-portfolio" 로 변경
         Map<String, Object> flaskResponse = callFlask("/asset-portfolio", flaskBody);
 
         @SuppressWarnings("unchecked")
