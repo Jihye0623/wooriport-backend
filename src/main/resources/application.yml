@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: wooriport
   profiles:
     include: secret
 
@@ -38,6 +40,15 @@ springdoc:
 logging:
   level:
     org.springframework.security: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
 
 flask:
   ml-url: http://localhost:8000
