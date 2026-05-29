@@ -4,6 +4,7 @@ import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.UserRepository;
+import com.wooriport.core_api.service.TransferPlanService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
@@ -21,6 +22,7 @@ public class SalaryTransferTasklet implements Tasklet {
 
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
+    private final TransferPlanService transferPlanService;
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
@@ -64,6 +66,13 @@ public class SalaryTransferTasklet implements Tasklet {
                 toAsset.updateBalance(toAsset.getBalance() + transferAmount); // 우리은행 입금
 
                 log.info("[AutoTransferJob] 완료 — userId: {}, {}원 이체", user.getId(), transferAmount);
+
+                try {
+                    transferPlanService.generateFromSalary(user.getId());
+                    log.info("[AutoTransferJob] 이체 계획 생성 완료 — userId: {}", user.getId());
+                } catch (Exception e) {
+                    log.error("[AutoTransferJob] 이체 계획 생성 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage());
+                }
 
             } catch (Exception e) {
                 log.error("[AutoTransferJob] 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage());
