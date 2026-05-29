@@ -10,6 +10,7 @@ import java.util.UUID;
 @Builder
 public class PortfolioFlowListResponseDto {
 
+    private Long monthlyInvestAmount;   // users.monthly_invest_amount — 월 총 투자액
     private List<FlowDto> flows;
 
     @Getter
@@ -20,6 +21,7 @@ public class PortfolioFlowListResponseDto {
         private String title;
         private String summary;
         private String term;           // "단" / "중" / "장"
+        private Long amount;           // 모을 통장 월 납입 금액
         private Boolean isActive;
 
         private GatheringAssetDto gatheringAsset;   // step2 (모으기 / 허브)

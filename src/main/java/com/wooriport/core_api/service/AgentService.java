@@ -540,6 +540,8 @@ public class AgentService {
             String title = (String) flowDto.get("title");
             String summary = (String) flowDto.get("summary");
             String term = mapTerm((String) flowDto.get("term"));
+            Long flowAmount = flowDto.get("amount") != null
+                    ? ((Number) flowDto.get("amount")).longValue() : 0L;
 
             Assets gatheringAsset = null;
             Object gatheringObj = flowDto.get("gathering_account");
@@ -553,6 +555,7 @@ public class AgentService {
                     .title(title != null ? title : "")
                     .summary(summary)
                     .term(term)
+                    .amount(flowAmount)
                     .gatheringAsset(gatheringAsset)
                     .isActive(false)
                     .build();

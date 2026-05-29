@@ -7,14 +7,17 @@ import com.wooriport.core_api.base.dto.portfolioFlow.PortfolioFlowListResponseDt
 import com.wooriport.core_api.base.dto.portfolioFlow.PortfolioFlowListResponseDto.ProductItemDto;
 import com.wooriport.core_api.base.dto.portfolioFlow.PortfolioFlowListResponseDto.SourceItemDto;
 import com.wooriport.core_api.base.dto.portfolioFlow.PortfolioFlowUpdateRequestDto;
+import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.PortfolioFlowItems;
 import com.wooriport.core_api.domain.PortfolioFlows;
 import com.wooriport.core_api.domain.Products;
+import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.PortfolioFlowItemRepository;
 import com.wooriport.core_api.repository.PortfolioFlowRepository;
 import com.wooriport.core_api.repository.ProductRepository;
+import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class PortfolioFlowService {
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
     private final AssetRepository assetRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     // PATCH /portfolio-flows/{flowId}
     // gathering_asset_id + items(PULL/PUT) 전체 교체
@@ -150,6 +154,9 @@ public class PortfolioFlowService {
 
     @Transactional(readOnly = true)
     public PortfolioFlowListResponseDto getFlows(UUID userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
         List<PortfolioFlows> flows = portfolioFlowRepository.findAllByUserIdWithDetails(userId);
 
         List<FlowDto> flowDtos = flows.stream()
@@ -160,6 +167,7 @@ public class PortfolioFlowService {
                 .collect(Collectors.toList());
 
         return PortfolioFlowListResponseDto.builder()
+                .monthlyInvestAmount(user.getMonthlyInvestAmount())
                 .flows(flowDtos)
                 .build();
     }
@@ -181,6 +189,7 @@ public class PortfolioFlowService {
                 .title(flow.getTitle())
                 .summary(flow.getSummary())
                 .term(flow.getTerm())
+                .amount(flow.getAmount())
                 .isActive(flow.getIsActive())
                 .gatheringAsset(toGatheringDto(flow.getGatheringAsset()))
                 .sources(sources)
