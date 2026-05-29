@@ -195,9 +195,12 @@ public class TransferPlanService {
         List<TransferPlans> plans = new ArrayList<>();
 
         // 3-1. portfolios → asset_amount 기반 플랜
-        List<TransferPlans> portfolioPlans = portfolios.stream()
+        List<Portfolios> filteredPortfolios = portfolios.stream()
                 .filter(p -> p.getAsset() != null)
                 .filter(p -> !p.getAsset().getId().equals(user.getAutoTransferToAssetId()))
+                .collect(Collectors.toList());
+
+        List<TransferPlans> portfolioPlans = filteredPortfolios.stream()
                 .map(p -> TransferPlans.builder()
                         .user(user)
                         .asset(p.getAsset())
@@ -219,9 +222,15 @@ public class TransferPlanService {
                 .map(p -> p.getAsset().getId())
                 .collect(Collectors.toSet());
 
-        List<TransferPlans> flowItemPlans = flowItems.stream()
+        // flow의 put 아이템 자체
+        List<PortfolioFlowItems> filteredFlowItems = flowItems.stream()
+                .filter(pi -> pi.getAsset() != null)
                 .filter(pi -> !pi.getAsset().getId().equals(user.getAutoTransferToAssetId()))
                 .filter(pi -> !portfolioAssetIds.contains(pi.getAsset().getId()))
+                .collect(Collectors.toList());
+
+        // filteredFlowItems를 db에 저장할 이체계획으로 변환한 것 
+        List<TransferPlans> flowItemPlans = filteredFlowItems.stream()
                 .map(pi -> TransferPlans.builder()
                         .user(user)
                         .asset(pi.getAsset())
@@ -234,11 +243,11 @@ public class TransferPlanService {
                 .toList();
         plans.addAll(flowItemPlans);
 
-        // 2-2. ±5만원 초과 변동 시 FastAPI /salary로 금액 조정
+        // 2-2. 급여 변동 시 FastAPI /salary로 금액 조정
         String rebalanceComment = null;
         if (isOutOfRange && !plans.isEmpty()) {
             Long salaryDiff = monthlySalary - user.getSalary();
-            Map<String, Object> aiRes = callSalaryApi(userId, salaryDiff, plans);
+            Map<String, Object> aiRes = callSalaryApi(userId, salaryDiff, filteredPortfolios, filteredFlowItems);
             if (aiRes != null) {
                 rebalanceComment = applyAiRebalancing(plans, aiRes);
                 log.info("[generateFromSalary] AI 리밸런싱 적용 — salaryDiff: {}원", salaryDiff);
@@ -282,9 +291,11 @@ public class TransferPlanService {
 
     // FastAPI POST /salary 호출
     @SuppressWarnings("unchecked")
-    private Map<String, Object> callSalaryApi(UUID userId, Long salaryDiff, List<TransferPlans> plans) {
+    private Map<String, Object> callSalaryApi(UUID userId, Long salaryDiff,
+                                               List<Portfolios> portfolios,
+                                               List<PortfolioFlowItems> flowItems) {
         try {
-            List<Map<String, Object>> rebalanceList = plans.stream()
+            List<Map<String, Object>> portfolioList = portfolios.stream()
                     .map(p -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("asset_id", p.getAsset().getId().toString());
@@ -292,7 +303,19 @@ public class TransferPlanService {
                                 ? p.getAsset().getAccountPurpose()
                                 : p.getAssetType().name();
                         m.put("category", category);
-                        m.put("amount", p.getPlannedAmount());
+                        m.put("amount", p.getAssetAmount());
+                        return m;
+                    })
+                    .collect(Collectors.toList());
+
+            List<Map<String, Object>> flowList = flowItems.stream()
+                    .map(pi -> {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("title", pi.getFlow().getTitle());
+                        m.put("term", pi.getFlow().getTerm());
+                        m.put("summary", pi.getFlow().getSummary());
+                        m.put("asset_id", pi.getAsset().getId().toString());
+                        m.put("amount", pi.getFlow().getAmount() * pi.getProductRatio() / 100);
                         return m;
                     })
                     .collect(Collectors.toList());
@@ -300,7 +323,8 @@ public class TransferPlanService {
             Map<String, Object> body = new HashMap<>();
             body.put("user_id", userId.toString());
             body.put("salary_diff", salaryDiff);
-            body.put("salary_rebalance", rebalanceList);
+            body.put("portfolio_items", portfolioList);
+            body.put("flow_items", flowList);
 
             return webClient.post()
                     .uri(flaskMlUrl + "/salary")
@@ -317,22 +341,33 @@ public class TransferPlanService {
     // AI 응답으로 플랜 금액 업데이트, rebalance_comment 반환
     @SuppressWarnings("unchecked")
     private String applyAiRebalancing(List<TransferPlans> plans, Map<String, Object> aiRes) {
-        List<Map<String, Object>> aiRebalance = (List<Map<String, Object>>) aiRes.get("salary_rebalance");
-        if (aiRebalance != null) {
-            Map<UUID, Long> aiAmounts = aiRebalance.stream()
-                    .filter(m -> m.get("asset_id") != null && m.get("amount") != null)
-                    .collect(Collectors.toMap(
-                            m -> UUID.fromString((String) m.get("asset_id")),
-                            m -> ((Number) m.get("amount")).longValue(),
-                            (a, b) -> a));
+        Map<UUID, Long> aiAmounts = new HashMap<>();
 
-            plans.forEach(p -> {
-                Long aiAmount = aiAmounts.get(p.getAsset().getId());
-                if (aiAmount != null) {
-                    p.updatePlannedAmount(aiAmount);
-                }
-            });
+        List<Map<String, Object>> portfolioItems = (List<Map<String, Object>>) aiRes.get("portfolio_items");
+        if (portfolioItems != null) {
+            portfolioItems.stream()
+                    .filter(m -> m.get("asset_id") != null && m.get("amount") != null)
+                    .forEach(m -> aiAmounts.put(
+                            UUID.fromString((String) m.get("asset_id")),
+                            ((Number) m.get("amount")).longValue()));
         }
+
+        List<Map<String, Object>> flowItems = (List<Map<String, Object>>) aiRes.get("flow_items");
+        if (flowItems != null) {
+            flowItems.stream()
+                    .filter(m -> m.get("asset_id") != null && m.get("amount") != null)
+                    .forEach(m -> aiAmounts.put(
+                            UUID.fromString((String) m.get("asset_id")),
+                            ((Number) m.get("amount")).longValue()));
+        }
+
+        plans.forEach(p -> {
+            Long aiAmount = aiAmounts.get(p.getAsset().getId());
+            if (aiAmount != null) {
+                p.updatePlannedAmount(aiAmount);
+            }
+        });
+
         return (String) aiRes.get("rebalance_comment");
     }
 
