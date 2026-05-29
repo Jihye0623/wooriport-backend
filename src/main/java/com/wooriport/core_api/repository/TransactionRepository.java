@@ -149,6 +149,20 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
             @Param("year") int year,
             @Param("month") int month);
 
+    // SPENDING_TREND 상세용: 특정 기간 지출 거래
+    @Query("""
+        SELECT t FROM Transactions t
+        WHERE t.user.id = :userId
+          AND t.amount < 0
+          AND t.transactionAt >= :from
+          AND t.transactionAt <= :to
+        ORDER BY t.transactionAt ASC
+        """)
+    List<Transactions> findExpensesBetween(
+            @Param("userId") UUID userId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
     // 월간 리포트용: 입출금 전체 거래 (asset JOIN FETCH)
     @Query("""
         SELECT t FROM Transactions t

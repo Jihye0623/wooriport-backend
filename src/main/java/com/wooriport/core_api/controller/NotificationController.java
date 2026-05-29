@@ -1,6 +1,7 @@
 package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.Notification.NotificationDto;
+import com.wooriport.core_api.base.dto.Notification.SpendingTrendDetailResponseDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.config.security.CustomUserDetails;
 import com.wooriport.core_api.domain.Notifications;
@@ -74,5 +75,16 @@ public class NotificationController {
 
         notificationService.readAllNotifications(userDetails.getId());
         return ResponseEntity.ok(ResponseDTO.success(200, "전체 알림 읽음 처리 성공", null));
+    }
+
+    @Operation(summary = "소비 추세 알림 상세 조회",
+            description = "SPENDING_TREND 알림의 AI 카테고리 분석, 주차별 소비 그래프, 카테고리별 소비 현황을 반환합니다.")
+    @GetMapping("/{id}/spending-trend")
+    public ResponseEntity<ResponseDTO<SpendingTrendDetailResponseDto>> getSpendingTrendDetail(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        return ResponseEntity.ok(ResponseDTO.success(200, "소비 추세 상세 조회 성공",
+                notificationService.getSpendingTrendDetail(userDetails.getId(), id)));
     }
 }

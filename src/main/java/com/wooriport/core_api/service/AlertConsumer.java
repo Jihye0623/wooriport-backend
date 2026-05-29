@@ -48,7 +48,8 @@ public class AlertConsumer {
             notificationService.saveAndSend(
                     userId,
                     Notifications.NotificationType.SPENDING_TREND,
-                    "이상 소비 감지 🚨",
+                    "밸런싱 붕괴 조짐이 보여요",
+                    "이번 달 소비 속도가 빠르게 올라가고 있어요!",
                     content);
 
             log.info("[AlertConsumer] 이상소비 알림 — userId: {}, content: {}", userId, content);
