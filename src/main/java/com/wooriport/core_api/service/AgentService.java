@@ -30,6 +30,7 @@ public class AgentService {
     private final ProductRepository productRepository;
     private final PortfolioFlowRepository portfolioFlowRepository;
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
+    private final EventRepository eventRepository;
 
     private final WebClient webClient;
 
@@ -611,6 +612,203 @@ public class AgentService {
 
         log.info("[AgentService] AI 포트폴리오 생성 완료 — userId={}, flows={}",
                 userId, investmentFlows.size());
+    }
+
+    // ──────────────────────────────────────
+    // POST /agent/event/prescriptions
+    // 이벤트 처방전 — 최근 활성 event 기준으로 FastAPI /event/asset-portfolio 호출
+    // 응답 후 해당 유저의 모든 기존 흐름 삭제 → 새 흐름을 event에 묶어 저장
+    // ──────────────────────────────────────
+    @Transactional
+    public void generateEventPrescriptions(UUID userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
+        // 1. 최근 활성 이벤트 조회 (별도 API가 미리 저장해뒀다고 가정)
+        Event event = eventRepository.findActiveByUserId(userId)
+                .orElseThrow(() -> new IllegalStateException("활성 이벤트가 없습니다."));
+
+        // 2. 보유 자산 — 카드 + 월급 리밸런싱에 묶인 계좌 제외
+        List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
+
+        Set<UUID> rebalancedAssetIds = portfolioRepository.findByUserId(userId).stream()
+                .map(Portfolios::getAsset)
+                .filter(Objects::nonNull)
+                .map(Assets::getId)
+                .collect(Collectors.toSet());
+
+        List<Map<String, Object>> investAssets = assets.stream()
+                .filter(a -> a.getAssetType() != Assets.AccountType.CREDIT_CARD
+                          && a.getAssetType() != Assets.AccountType.DEBIT_CARD)
+                .filter(a -> !rebalancedAssetIds.contains(a.getId()))
+                .map(a -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("asset_type", a.getAssetType() != null ? a.getAssetType().name() : null);
+                    m.put("account_name", a.getAccountName());
+                    m.put("asset_id", a.getId().toString());
+                    m.put("balance", a.getBalance());
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        // 3. 활성 상품 카탈로그
+        List<Products> productList = productRepository.findAllActive();
+        List<Map<String, Object>> productsBody = productList.stream()
+                .map(p -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("product_type", p.getProductType() != null ? p.getProductType().name() : null);
+                    m.put("institution", p.getInstitution());
+                    m.put("name", p.getName());
+                    m.put("interest_rate", p.getInterestRate());
+                    m.put("description", p.getDescription());
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        // 4. 기존 흐름 조회 (FastAPI에 보낼 investment_flows + 이후 삭제 대상)
+        List<PortfolioFlows> existingFlows = portfolioFlowRepository.findAllByUserIdWithDetails(userId);
+
+        List<Map<String, Object>> investmentFlowsBody = existingFlows.stream()
+                .map(f -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("title", f.getTitle());
+                    m.put("term", f.getTerm());
+                    m.put("summary", f.getSummary());
+
+                    List<Map<String, Object>> fundingSources = f.getItems().stream()
+                            .filter(i -> i.getStepType() == PortfolioFlowItems.StepType.PULL)
+                            .map(i -> {
+                                Map<String, Object> src = new HashMap<>();
+                                src.put("account_name", i.getAsset() != null ? i.getAsset().getAccountName() : null);
+                                src.put("asset_id", i.getAsset() != null ? i.getAsset().getId().toString() : null);
+                                src.put("amount", i.getAmount());
+                                return src;
+                            })
+                            .collect(Collectors.toList());
+                    m.put("funding_sources", fundingSources);
+
+                    m.put("gathering_account",
+                            f.getGatheringAsset() != null ? f.getGatheringAsset().getId().toString() : null);
+                    m.put("amount", f.getAmount());
+
+                    List<Map<String, Object>> portfolio = f.getItems().stream()
+                            .filter(i -> i.getStepType() == PortfolioFlowItems.StepType.PUT)
+                            .map(i -> {
+                                Map<String, Object> p = new HashMap<>();
+                                p.put("name", i.getProduct() != null ? i.getProduct().getName() : null);
+                                p.put("ratio", i.getProductRatio());
+                                return p;
+                            })
+                            .collect(Collectors.toList());
+                    m.put("portfolio", portfolio);
+
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        // 5. FastAPI /event/asset-portfolio 호출
+        Map<String, Object> flaskBody = new HashMap<>();
+        flaskBody.put("user_id", userId.toString());
+        flaskBody.put("title", event.getTitle());
+        flaskBody.put("target_amount", event.getTargetAmount());
+        flaskBody.put("deadline", event.getDeadline().toString());
+        flaskBody.put("invest_amount",
+                user.getMonthlyInvestAmount() != null ? user.getMonthlyInvestAmount() : 0L);
+        flaskBody.put("porti_type", user.getPortiType() != null ? user.getPortiType().name() : null);
+        flaskBody.put("porti_comment", user.getPortiComment());
+        flaskBody.put("invest_assets", investAssets);
+        flaskBody.put("products", productsBody);
+        flaskBody.put("investment_flows", investmentFlowsBody);
+
+        Map<String, Object> flaskResponse = callFlask("/event/asset-portfolio", flaskBody);
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> newInvestmentFlows =
+                (List<Map<String, Object>>) flaskResponse.get("investment_flows");
+        if (newInvestmentFlows == null) {
+            throw new IllegalStateException("FastAPI 응답에 investment_flows 가 없습니다.");
+        }
+
+        // 6. 해당 유저의 모든 기존 흐름 삭제
+        if (!existingFlows.isEmpty()) {
+            portfolioFlowRepository.deleteAll(existingFlows);
+            portfolioFlowRepository.flush();
+        }
+
+        // 7. 매핑 테이블
+        Map<UUID, Assets> assetById = assets.stream()
+                .collect(Collectors.toMap(Assets::getId, a -> a, (a, b) -> a));
+        Map<String, Products> productByName = productList.stream()
+                .collect(Collectors.toMap(Products::getName, p -> p, (a, b) -> a));
+
+        // 8. 새 investment_flows 저장 (event에 묶어서)
+        for (Map<String, Object> flowDto : newInvestmentFlows) {
+            String title = (String) flowDto.get("title");
+            String summary = (String) flowDto.get("summary");
+            String term = mapTerm((String) flowDto.get("term"));
+            Long flowAmount = flowDto.get("amount") != null
+                    ? ((Number) flowDto.get("amount")).longValue() : 0L;
+
+            Assets gatheringAsset = null;
+            Object gatheringObj = flowDto.get("gathering_account");
+            if (gatheringObj != null) {
+                gatheringAsset = assetById.get(UUID.fromString(gatheringObj.toString()));
+            }
+
+            PortfolioFlows flow = PortfolioFlows.builder()
+                    .user(user)
+                    .event(event)
+                    .title(title != null ? title : "")
+                    .summary(summary)
+                    .term(term)
+                    .amount(flowAmount)
+                    .gatheringAsset(gatheringAsset)
+                    .isActive(false)
+                    .build();
+            PortfolioFlows savedFlow = portfolioFlowRepository.save(flow);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> fundingSources =
+                    (List<Map<String, Object>>) flowDto.get("funding_sources");
+            if (fundingSources != null) {
+                for (Map<String, Object> src : fundingSources) {
+                    Object assetIdObj = src.get("asset_id");
+                    if (assetIdObj == null) continue;
+                    UUID srcAssetId = UUID.fromString(assetIdObj.toString());
+                    Long amount = src.get("amount") != null
+                            ? ((Number) src.get("amount")).longValue() : 0L;
+                    portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
+                            .flow(savedFlow)
+                            .stepType(PortfolioFlowItems.StepType.PULL)
+                            .asset(assetById.get(srcAssetId))
+                            .amount(amount)
+                            .build());
+                }
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> portfolio =
+                    (List<Map<String, Object>>) flowDto.get("portfolio");
+            if (portfolio != null) {
+                for (Map<String, Object> p : portfolio) {
+                    String name = (String) p.get("name");
+                    Integer ratio = p.get("ratio") != null
+                            ? ((Number) p.get("ratio")).intValue() : 0;
+                    Products product = name != null ? productByName.get(name) : null;
+                    portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
+                            .flow(savedFlow)
+                            .stepType(PortfolioFlowItems.StepType.PUT)
+                            .product(product)
+                            .productType(product != null && product.getProductType() != null
+                                    ? product.getProductType().name() : null)
+                            .productRatio(ratio)
+                            .build());
+                }
+            }
+        }
+
+        log.info("[AgentService] 이벤트 AI 포트폴리오 생성 완료 — userId={}, eventId={}, flows={}",
+                userId, event.getId(), newInvestmentFlows.size());
     }
 
     private static String mapTerm(String fullTerm) {
