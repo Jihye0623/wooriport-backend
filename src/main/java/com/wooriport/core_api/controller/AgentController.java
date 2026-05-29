@@ -73,6 +73,25 @@ public class AgentController {
     }
 
     @Operation(
+            summary = "이벤트 AI 자산 처방전 생성",
+            description = """
+            이벤트 목표 확정 후 호출됩니다.
+            users + 최근 활성 event + 보유 자산(카드/리밸런싱 묶인 계좌 제외) + 상품 카탈로그
+            + 기존 portfolio_flows를 FastAPI(/event/asset-portfolio)에 넘겨
+            새 investment_flows를 생성받아 해당 유저의 기존 흐름을 모두 삭제하고
+            이벤트에 묶어 portfolio_flows + items에 저장합니다.
+            """
+    )
+    @PostMapping("/event/prescriptions")
+    public ResponseEntity<ResponseDTO<Void>> generateEventPrescriptions(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        agentService.generateEventPrescriptions(userDetails.getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ResponseDTO.success(201,
+                "이벤트 AI 포트폴리오 분석 및 생성 완료", null));
+    }
+
+    @Operation(
             summary = "자연어 목표 구체화",
             description = "사용자의 자연어 입력을 AI가 분석해 목표 이름, 금액, 마감일을 반환합니다."
     )
