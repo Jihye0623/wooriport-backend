@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -39,8 +38,8 @@ public class TransferPlanService {
     private final TransactionRepository transactionRepository;
     private final NotificationRepository notificationRepository;
     private final PortfolioRepository portfolioRepository;
+    private final PortfolioFlowRepository portfolioFlowRepository;
     private final TransferExecutionRepository transferExecutionRepository;
-    private final PortfolioFlowItemRepository portfolioFlowItemRepository;
     private final WebClient webClient;
 
     @Value("${flask.ml-url}")
@@ -66,20 +65,10 @@ public class TransferPlanService {
                 .filter(p -> p.getAsset() != null)
                 .collect(Collectors.toMap(p -> p.getAsset().getId(), Function.identity(), (a, b) -> a));
 
-        // flow items 기준값: assetId → baselineAmount, assetId → flowItem
-        List<PortfolioFlowItems> flowItems = portfolioFlowItemRepository
-                .findActiveFlowItemsWithAmountByUserId(userId);
-        Map<UUID, Long> flowBaselineByAssetId = flowItems.stream()
-                .filter(pi -> pi.getAsset() != null
-                        && pi.getFlow().getAmount() != null
-                        && pi.getProductRatio() != null)
-                .collect(Collectors.toMap(
-                        pi -> pi.getAsset().getId(),
-                        pi -> pi.getFlow().getAmount() * pi.getProductRatio() / 100,
-                        (a, b) -> a));
-        Map<UUID, PortfolioFlowItems> flowItemByAssetId = flowItems.stream()
-                .filter(pi -> pi.getAsset() != null)
-                .collect(Collectors.toMap(pi -> pi.getAsset().getId(), Function.identity(), (a, b) -> a));
+        // flow 기준값: gatheringAssetId → flow.amount
+        Map<UUID, Long> flowBaselineByAssetId = portfolioFlowRepository
+                .findActiveByUserIdWithGatheringAsset(userId).stream()
+                .collect(Collectors.toMap(f -> f.getGatheringAsset().getId(), PortfolioFlows::getAmount, (a, b) -> a));
 
         // 플랜을 portfolio / flow 로 분류
         List<TransferPlanSummaryResponseDto.PortfolioPlanItem> portfolioItems = new ArrayList<>();
@@ -103,12 +92,10 @@ public class TransferPlanService {
 
             } else if (flowBaselineByAssetId.containsKey(assetId)) {
                 Long baseline = flowBaselineByAssetId.get(assetId);
-                PortfolioFlowItems fi = flowItemByAssetId.get(assetId);
                 flowPlanItems.add(TransferPlanSummaryResponseDto.FlowPlanItem.builder()
                         .planId(plan.getId())
                         .assetId(assetId)
                         .institution(plan.getAsset().getInstitution())
-                        .productType(fi != null ? fi.getProductType() : null)
                         .plannedAmount(plan.getPlannedAmount())
                         .baselineAmount(baseline)
                         .diff(plan.getPlannedAmount() - baseline)
@@ -213,41 +200,28 @@ public class TransferPlanService {
                 .toList();
         plans.addAll(portfolioPlans);
 
-        // 3-2. portfolio_flow_items (startedAt IS NOT NULL인 흐름) → amount 기반 플랜
-        List<PortfolioFlowItems> flowItems = portfolioFlowItemRepository
-                .findActiveFlowItemsWithAmountByUserId(userId);
+        // 3-2. 활성 흐름 → gatheringAsset 기반 플랜
+        List<PortfolioFlows> activeFlows = portfolioFlowRepository
+                .findActiveByUserIdWithGatheringAsset(userId);
 
-        Set<UUID> portfolioAssetIds = portfolios.stream()
-                .filter(p -> p.getAsset() != null)
-                .map(p -> p.getAsset().getId())
-                .collect(Collectors.toSet());
-
-        // flow의 put 아이템 자체
-        List<PortfolioFlowItems> filteredFlowItems = flowItems.stream()
-                .filter(pi -> pi.getAsset() != null)
-                .filter(pi -> !pi.getAsset().getId().equals(user.getAutoTransferToAssetId()))
-                .filter(pi -> !portfolioAssetIds.contains(pi.getAsset().getId()))
-                .collect(Collectors.toList());
-
-        // filteredFlowItems를 db에 저장할 이체계획으로 변환한 것 
-        List<TransferPlans> flowItemPlans = filteredFlowItems.stream()
-                .map(pi -> TransferPlans.builder()
+        List<TransferPlans> flowPlans = activeFlows.stream()
+                .map(f -> TransferPlans.builder()
                         .user(user)
-                        .asset(pi.getAsset())
-                        .assetType(mapAccountTypeToCategory(pi.getAsset().getAssetType()))
-                        .plannedAmount(pi.getFlow().getAmount() * pi.getProductRatio() / 100)
+                        .asset(f.getGatheringAsset())
+                        .assetType(mapAccountTypeToCategory(f.getGatheringAsset().getAssetType()))
+                        .plannedAmount(f.getAmount())
                         .isConfirmed(false)
                         .year(year)
                         .month(month)
                         .build())
                 .toList();
-        plans.addAll(flowItemPlans);
+        plans.addAll(flowPlans);
 
         // 2-2. 급여 변동 시 FastAPI /salary로 금액 조정
         String rebalanceComment = null;
         if (isOutOfRange && !plans.isEmpty()) {
             Long salaryDiff = monthlySalary - user.getSalary();
-            Map<String, Object> aiRes = callSalaryApi(userId, salaryDiff, filteredPortfolios, filteredFlowItems);
+            Map<String, Object> aiRes = callSalaryApi(userId, salaryDiff, filteredPortfolios, activeFlows);
             if (aiRes != null) {
                 rebalanceComment = applyAiRebalancing(plans, aiRes);
                 log.info("[generateFromSalary] AI 리밸런싱 적용 — salaryDiff: {}원", salaryDiff);
@@ -266,7 +240,7 @@ public class TransferPlanService {
                 .build());
 
         log.info("[TransferPlanService] 이체 계획 생성 완료 — userId: {}, 급여: {}원, portfolios: {}건, flowItems: {}건",
-                userId, monthlySalary, portfolioPlans.size(), flowItemPlans.size());
+                userId, monthlySalary, portfolioPlans.size(), flowPlans.size());
 
         return toListResponse(plans, monthlySalary);
     }
@@ -286,7 +260,7 @@ public class TransferPlanService {
     @SuppressWarnings("unchecked")
     private Map<String, Object> callSalaryApi(UUID userId, Long salaryDiff,
                                                List<Portfolios> portfolios,
-                                               List<PortfolioFlowItems> flowItems) {
+                                               List<PortfolioFlows> flows) {
         try {
             List<Map<String, Object>> portfolioList = portfolios.stream()
                     .map(p -> {
@@ -301,14 +275,14 @@ public class TransferPlanService {
                     })
                     .collect(Collectors.toList());
 
-            List<Map<String, Object>> flowList = flowItems.stream()
-                    .map(pi -> {
+            List<Map<String, Object>> flowList = flows.stream()
+                    .map(f -> {
                         Map<String, Object> m = new HashMap<>();
-                        m.put("title", pi.getFlow().getTitle());
-                        m.put("term", pi.getFlow().getTerm());
-                        m.put("summary", pi.getFlow().getSummary());
-                        m.put("asset_id", pi.getAsset().getId().toString());
-                        m.put("amount", pi.getFlow().getAmount() * pi.getProductRatio() / 100);
+                        m.put("title", f.getTitle());
+                        m.put("term", f.getTerm());
+                        m.put("summary", f.getSummary());
+                        m.put("asset_id", f.getGatheringAsset().getId().toString());
+                        m.put("amount", f.getAmount());
                         return m;
                     })
                     .collect(Collectors.toList());

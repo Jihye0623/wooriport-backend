@@ -44,7 +44,7 @@ public class PortfolioController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody PortfolioUpdateRequestDto request) {
 
-        return ResponseEntity.ok(ResponseDTO.success(200, "포트폴리오 수정 성공",
+        return ResponseEntity.ok(ResponseDTO.success(200, "포트폴리오 생성 성공",
                 portfolioService.savePortfolios(userDetails.getUserId(), request)));
     }
 
@@ -58,7 +58,7 @@ public class PortfolioController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody InvestAmountUpdateRequestDto request) {
 
-        return ResponseEntity.ok(ResponseDTO.success(200, "투자 금액 변경 성공",
+        return ResponseEntity.ok(ResponseDTO.success(200, "포트폴리오 수정 성공",
                 portfolioService.updatePortfolios(userDetails.getUserId(), request)));
     }
 }

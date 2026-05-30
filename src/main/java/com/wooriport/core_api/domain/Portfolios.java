@@ -35,7 +35,7 @@ public class Portfolios extends BaseEntity {
     @Column(name = "asset_type")
     private AssetCategory assetType;
 
-    // 월급 대비 비율 (%)
+    // 월급에서 분배할 돈
     @Column(name = "asset_amount", nullable = false)
     private Long assetAmount;
 
@@ -45,7 +45,7 @@ public class Portfolios extends BaseEntity {
     private Assets asset;
 
     // 비즈니스 메서드
-    public void updateRatio(Long amount) {
+    public void updateAmount(Long amount) {
         this.assetAmount = amount;
     }
 
