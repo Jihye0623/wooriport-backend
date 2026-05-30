@@ -54,7 +54,8 @@ public class SecurityConfiguration {
                                 "/swagger-ui.html",
                                 "/swagger-resources/**",
                                 "/webjars/**"
-                        ).permitAll() // Swagger 관련 리소스는 모두 허용
+                        ).permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                         .anyRequest().authenticated() // 그 외 모든 요청은 JWT 인증 필요
                 )
 

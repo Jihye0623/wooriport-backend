@@ -38,6 +38,8 @@ out/
 
 ### 로그 파일 ###
 *.log
+*.gz
+logs/
 
 ### 보안 ###
 src/main/resources/application-secret.yml
