@@ -3,7 +3,6 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.portfolio.InvestAmountUpdateRequestDto;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioListResponseDto;
 import com.wooriport.core_api.base.dto.portfolio.PortfolioUpdateRequestDto;
-import com.wooriport.core_api.domain.PortfolioFlowItems;
 import com.wooriport.core_api.domain.PortfolioFlows;
 import com.wooriport.core_api.domain.Portfolios;
 import com.wooriport.core_api.domain.Users;
@@ -102,50 +101,36 @@ public class PortfolioService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
 
-        Long salary = user.getSalary();
-        if (salary != null && request.getMonthlyInvestAmount() > salary) {
-            throw new IllegalArgumentException("월 투자 금액이 월급을 초과할 수 없습니다.");
-        }
-
         Long oldMonthlyInvestAmount = user.getMonthlyInvestAmount();
-        List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
 
-        if (request.getPortfolios() != null && !request.getPortfolios().isEmpty()) {
-            Map<UUID, InvestAmountUpdateRequestDto.PortfolioAmountItem> itemMap = request.getPortfolios().stream()
-                    .collect(Collectors.toMap(
-                            InvestAmountUpdateRequestDto.PortfolioAmountItem::getAssetId,
-                            item -> item));
+        // 삭제 전 assetType 보존 (assetId → assetType)
+        Map<UUID, AssetCategory> assetTypeMap = portfolioRepository.findByUserId(userId).stream()
+                .filter(p -> p.getAsset() != null)
+                .collect(Collectors.toMap(p -> p.getAsset().getId(), Portfolios::getAssetType));
 
-            for (Portfolios p : portfolios) {
-                if (p.getAsset() == null) continue;
-                InvestAmountUpdateRequestDto.PortfolioAmountItem item = itemMap.get(p.getAsset().getId());
-                if (item == null) continue;
-                p.updateRatio(item.getAssetAmount());
-                if (item.getAccountPurpose() != null) {
-                    p.getAsset().updateAccountPurpose(item.getAccountPurpose());
-                }
-            }
-        } else {
-            // portfolios 미전달: 기존 비율로 자동 재계산
-            Long current = user.getMonthlyInvestAmount();
-            if (current == null || current == 0 || portfolios.isEmpty()) {
-                user.updateMonthlyInvestAmount(request.getMonthlyInvestAmount());
-                return toResponse(portfolios, request.getMonthlyInvestAmount(), salary);
-            }
+        // 기존 포트폴리오 전체 삭제 후 재생성
+        portfolioRepository.deleteByUserId(userId);
 
-            long allocated = 0;
-            for (int i = 0; i < portfolios.size() - 1; i++) {
-                long newAmount = request.getMonthlyInvestAmount() * portfolios.get(i).getAssetAmount() / current;
-                portfolios.get(i).updateRatio(newAmount);
-                allocated += newAmount;
-            }
-            // 마지막 항목에 나머지 배정 (반올림 오차 처리)
-            portfolios.get(portfolios.size() - 1).updateRatio(request.getMonthlyInvestAmount() - allocated);
-        }
+        List<Portfolios> saved = request.getPortfolios().stream()
+                .map(item -> {
+                    com.wooriport.core_api.domain.Assets asset = assetRepository.findById(item.getAssetId())
+                            .orElseThrow(() -> new IllegalArgumentException("계좌를 찾을 수 없습니다: " + item.getAssetId()));
+                    if (item.getAccountPurpose() != null) {
+                        asset.updateAccountPurpose(item.getAccountPurpose());
+                    }
+                    return Portfolios.builder()
+                            .user(user)
+                            .assetType(assetTypeMap.get(item.getAssetId()))
+                            .assetAmount(item.getAssetAmount())
+                            .asset(asset)
+                            .build();
+                })
+                .collect(Collectors.toList());
 
-        // monthlyInvestAmount 변경 시 portfolioFlow.amount를 기존 비율 그대로 재계산
-        if (oldMonthlyInvestAmount != null && oldMonthlyInvestAmount > 0
-                && !request.getMonthlyInvestAmount().equals(oldMonthlyInvestAmount)) {
+        portfolioRepository.saveAll(saved);
+
+        // portfolioFlow.amount를 현재 monthlyInvestAmount 대비 비율로 재계산
+        if (oldMonthlyInvestAmount != null && oldMonthlyInvestAmount > 0) {
             List<PortfolioFlows> flows = portfolioFlowRepository.findAllByUserIdWithItems(userId);
             for (PortfolioFlows flow : flows) {
                 if (flow.getAmount() != null) {
@@ -157,10 +142,10 @@ public class PortfolioService {
 
         user.updateMonthlyInvestAmount(request.getMonthlyInvestAmount());
 
-        log.info("[PortfolioService] 투자 금액 변경 — userId: {}, {}원 → {}원",
-                userId, oldMonthlyInvestAmount, request.getMonthlyInvestAmount());
+        log.info("[PortfolioService] 포트폴리오 수정 — userId: {}, {}개, {}원 → {}원",
+                userId, saved.size(), oldMonthlyInvestAmount, request.getMonthlyInvestAmount());
 
-        return toResponse(portfolios, request.getMonthlyInvestAmount(), salary);
+        return toResponse(saved, request.getMonthlyInvestAmount(), user.getSalary());
     }
 
     // ──────────────────────────────────────

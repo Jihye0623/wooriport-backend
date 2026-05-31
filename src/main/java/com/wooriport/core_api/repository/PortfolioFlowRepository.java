@@ -30,6 +30,17 @@ public interface PortfolioFlowRepository extends JpaRepository<PortfolioFlows, U
         """)
     List<PortfolioFlows> findAllByUserIdWithItems(@Param("userId") UUID userId);
 
+    // 이체 계획용: 활성 흐름 + gatheringAsset만 페치
+    @Query("""
+        SELECT f FROM PortfolioFlows f
+        LEFT JOIN FETCH f.gatheringAsset
+        WHERE f.user.id = :userId
+          AND f.isActive = true
+          AND f.gatheringAsset IS NOT NULL
+          AND f.amount IS NOT NULL
+        """)
+    List<PortfolioFlows> findActiveByUserIdWithGatheringAsset(@Param("userId") UUID userId);
+
     // asset-portfolio 화면: 흐름 + gatheringAsset + items + item.asset + item.product 까지
     // 한 번에 페치 (items 컬렉션 하나에만 fetch 적용)
     @Query("""
