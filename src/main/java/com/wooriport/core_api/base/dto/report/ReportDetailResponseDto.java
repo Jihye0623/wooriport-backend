@@ -27,9 +27,6 @@ public class ReportDetailResponseDto {
     private String performanceStatus;     // UNDERPERFORM / OUTPERFORM
     private String performanceComment;
 
-    // 목표 달성률 (0~100, 이벤트 없으면 null)
-    private Integer goalProgress;
-
     // 주별 총자산 스냅샷 (그래프용)
     private List<AssetSnapshot> assetSnapshots;
 

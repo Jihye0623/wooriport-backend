@@ -84,10 +84,6 @@ public class Reports extends BaseEntity {
     @Column(name = "performance_comment", columnDefinition = "TEXT")
     private String performanceComment;
 
-    // 목표 달성률 (0~100, 이벤트 없으면 null)
-    @Column(name = "goal_progress")
-    private Integer goalProgress;
-
     // 주별 총자산 스냅샷 JSON (프론트 그래프용)
     // [{"snapshotDate":"2026-03-07","totalAmount":15000000}, ...]
     @Column(name = "asset_snapshots_json", columnDefinition = "TEXT")

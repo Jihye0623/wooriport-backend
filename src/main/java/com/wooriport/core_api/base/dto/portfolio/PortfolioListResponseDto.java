@@ -18,7 +18,6 @@ public class PortfolioListResponseDto {
     @Builder
     public static class PortfolioItem {
         private UUID id;
-        private String assetType;      // STOCK / BOND / CASH / IRP / EMERGENCY / FIXED
         private Long assetAmount;
         private Boolean isLinked;
         private String institution;
