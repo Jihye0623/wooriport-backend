@@ -20,7 +20,7 @@ public interface PortfolioFlowItemRepository extends JpaRepository<PortfolioFlow
         LEFT JOIN FETCH pi.flow f
         LEFT JOIN FETCH f.gatheringAsset
         WHERE pi.flow.user.id = :userId
-          AND pi.stepType = com.wooriport.core_api.domain.PortfolioFlowItems.StepType.PUT
+          AND pi.productRatio IS NOT NULL
         """)
     List<PortfolioFlowItems> findAllPutByUserIdWithAsset(@Param("userId") UUID userId);
 
@@ -31,7 +31,6 @@ public interface PortfolioFlowItemRepository extends JpaRepository<PortfolioFlow
         LEFT JOIN FETCH pi.flow f
         WHERE pi.flow.user.id = :userId
           AND pi.flow.startedAt IS NOT NULL
-          AND pi.stepType = com.wooriport.core_api.domain.PortfolioFlowItems.StepType.PUT
           AND pi.asset IS NOT NULL
           AND pi.productRatio IS NOT NULL
           AND pi.flow.amount IS NOT NULL

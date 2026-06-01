@@ -260,7 +260,10 @@ public class DashboardService {
         //   amount = sourceAsset.balance × productRatio / 100
         Map<String, List<NamedAmount>> bucketsByLabel = new LinkedHashMap<>();
         for (PortfolioFlowItems pi : putItems) {
-            String label = labelOf(pi.getProductType());
+            String productType = (pi.getProduct() != null && pi.getProduct().getProductType() != null)
+                    ? pi.getProduct().getProductType().name()
+                    : null;
+            String label = labelOf(productType);
             if (label == null) continue;
 
             Assets sourceAsset = pi.getAsset();
