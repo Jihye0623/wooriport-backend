@@ -6,7 +6,6 @@ import com.wooriport.core_api.base.dto.portfolio.PortfolioUpdateRequestDto;
 import com.wooriport.core_api.domain.PortfolioFlows;
 import com.wooriport.core_api.domain.Portfolios;
 import com.wooriport.core_api.domain.Users;
-import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.PortfolioFlowRepository;
 import com.wooriport.core_api.repository.PortfolioRepository;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -77,7 +75,6 @@ public class PortfolioService {
 
                     return Portfolios.builder()
                             .user(user)
-                            .assetType(AssetCategory.valueOf(item.getAssetType()))
                             .assetAmount(item.getAssetAmount())
                             .asset(asset)
                             .build();
@@ -103,11 +100,6 @@ public class PortfolioService {
 
         Long oldMonthlyInvestAmount = user.getMonthlyInvestAmount();
 
-        // 삭제 전 assetType 보존 (assetId → assetType)
-        Map<UUID, AssetCategory> assetTypeMap = portfolioRepository.findByUserId(userId).stream()
-                .filter(p -> p.getAsset() != null)
-                .collect(Collectors.toMap(p -> p.getAsset().getId(), Portfolios::getAssetType));
-
         // 기존 포트폴리오 전체 삭제 후 재생성
         portfolioRepository.deleteByUserId(userId);
 
@@ -120,7 +112,6 @@ public class PortfolioService {
                     }
                     return Portfolios.builder()
                             .user(user)
-                            .assetType(assetTypeMap.get(item.getAssetId()))
                             .assetAmount(item.getAssetAmount())
                             .asset(asset)
                             .build();
@@ -160,7 +151,6 @@ public class PortfolioService {
         List<PortfolioListResponseDto.PortfolioItem> items = portfolios.stream()
                 .map(p -> PortfolioListResponseDto.PortfolioItem.builder()
                         .id(p.getId())
-                        .assetType(p.getAssetType().name())
                         .assetAmount(p.getAssetAmount())
                         .isLinked(p.isLinked())
                         .institution(p.isLinked() ? p.getAsset().getInstitution() : null)

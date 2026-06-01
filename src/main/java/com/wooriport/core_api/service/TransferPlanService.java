@@ -191,7 +191,6 @@ public class TransferPlanService {
                 .map(p -> TransferPlans.builder()
                         .user(user)
                         .asset(p.getAsset())
-                        .assetType(p.getAssetType())
                         .plannedAmount(p.getAssetAmount())
                         .isConfirmed(false)
                         .year(year)
@@ -268,7 +267,7 @@ public class TransferPlanService {
                         m.put("asset_id", p.getAsset().getId().toString());
                         String category = p.getAsset().getAccountPurpose() != null
                                 ? p.getAsset().getAccountPurpose()
-                                : p.getAssetType().name();
+                                : "";
                         m.put("category", category);
                         m.put("amount", p.getAssetAmount());
                         return m;

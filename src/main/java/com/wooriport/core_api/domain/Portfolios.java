@@ -1,8 +1,15 @@
 package com.wooriport.core_api.domain;
 
-import com.wooriport.core_api.domain.common.AssetCategory;
 import com.wooriport.core_api.domain.common.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.*;
 
 import java.util.UUID;
@@ -23,17 +30,6 @@ public class Portfolios extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
-
-    // 자산 유형
-    // STOCK    주식
-    // BOND     채권
-    // CASH     현금/예금
-    // IRP      개인형 퇴직연금
-    // EMERGENCY 비상금
-    // FIXED    고정비 (생활비 등)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "asset_type")
-    private AssetCategory assetType;
 
     // 월급에서 분배할 돈
     @Column(name = "asset_amount", nullable = false)

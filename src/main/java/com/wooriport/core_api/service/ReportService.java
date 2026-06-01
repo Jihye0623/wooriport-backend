@@ -100,7 +100,6 @@ public class ReportService {
                 .guideline(report.getNextMonthGuideline())
                 .performanceStatus(report.getPerformanceStatus())
                 .performanceComment(report.getPerformanceComment())
-                .goalProgress(report.getGoalProgress())
                 .assetSnapshots(assetSnapshots)
                 .weeklyExpenses(weeklyExpenses)
                 .categoryExpenses(categoryItems)
@@ -211,7 +210,6 @@ public class ReportService {
                 .nextMonthGuideline((String) res.get("guideline"))
                 .performanceStatus((String) res.get("performance_status"))
                 .performanceComment((String) res.get("performance_comment"))
-                .goalProgress(goalProgress)
                 .assetSnapshotsJson(assetSnapshotsJson)
                 .weeklyExpensesJson(weeklyExpensesJson)
                 .build());

@@ -391,7 +391,6 @@ public class AgentService {
                 .map(p -> Map.<String, Object>of(
                         "asset_id",    p.getAsset().getId().toString(),
                         "account_name", p.getAsset().getAccountName() != null ? p.getAsset().getAccountName() : "",
-                        "category",    p.getAssetType().name(),
                         "amount",      p.getAssetAmount()))
                 .collect(Collectors.toList());
 

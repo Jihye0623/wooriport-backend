@@ -67,8 +67,8 @@ public class RebalancingTasklet implements Tasklet {
                 for (Portfolios portfolio : portfolios) {
                     // 계좌 미연동 항목 스킵
                     if (portfolio.getAsset() == null) {
-                        log.info("[Step2 Rebalancing] 계좌 미연동 스킵 — type: {}",
-                                portfolio.getAssetType());
+                        log.info("[Step2 Rebalancing] 계좌 미연동 스킵 — id: {}",
+                                portfolio.getId());
                         continue;
                     }
 
@@ -88,8 +88,8 @@ public class RebalancingTasklet implements Tasklet {
                     portfolio.getAsset().updateBalance(
                             portfolio.getAsset().getBalance() + amount);
 
-                    log.info("[Step2 Rebalancing] 분배 — type: {}, {}원 → {}",
-                            portfolio.getAssetType(),
+                    log.info("[Step2 Rebalancing] 분배 — id: {}, {}원 → {}",
+                            portfolio.getId(),
                             amount,
                             portfolio.getAsset().getInstitution());
                 }
