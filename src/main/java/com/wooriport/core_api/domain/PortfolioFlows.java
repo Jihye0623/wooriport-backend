@@ -137,5 +137,14 @@ public class PortfolioFlows extends BaseEntity {
     public void updateGatheringAsset(Assets asset) {
         this.gatheringAsset = asset;
     }
+
+    // 보유 계좌 연결(또는 추천 계좌 개설 후 연결) — 추천 표시 정보는 정리
+    public void linkGatheringAsset(Assets asset) {
+        this.gatheringAsset = asset;
+        this.gatheringName = null;
+        this.gatheringType = null;
+        this.gatheringInstitution = null;
+        this.gatheringInterestRate = null;
+    }
 }
 
