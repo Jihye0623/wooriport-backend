@@ -55,7 +55,7 @@ public class AgentService {
         var portiResult = usersService.calculateAndSave(userId, portiRequest);
 
         if (request.getStockThemes() != null) user.updateStockThemes(request.getStockThemes());
-        if (request.getLifeGoals() != null) user.updateLifeGoals(request.getLifeGoals());
+        if (request.getLifeGoal() != null) user.updateLifeGoal(request.getLifeGoal());
 
         // ──────────────────────────────────────
         // STEP 2. 3개월 카테고리별 소비 집계

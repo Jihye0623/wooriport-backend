@@ -53,17 +53,15 @@ public class Users extends SoftDeleteEntity {
     @Column(name = "salary")
     private Long salary;
 
-    // 관심 주식 테마 (최대 3개)
+    // 관심 주식 테마 - 1·2·3순위 순서 보존 (최대 3개, 스킵 가능)
     @Convert(converter = StringListConverter.class)
     @Column(name = "stock_themes")
     @Builder.Default
     private List<String> stockThemes = new ArrayList<>();
 
-    // 관심사 - 결혼, 차, 집 등 (최대 3개)
-    @Convert(converter = StringListConverter.class)
-    @Column(name = "life_goals")
-    @Builder.Default
-    private List<String> lifeGoals = new ArrayList<>();
+    // 관심사 - 결혼, 차, 집 등
+    @Column(name = "life_goal", length = 50)
+    private String lifeGoal;
 
     public void updateMonthlyInvestAmount(Long amount) {
         this.monthlyInvestAmount = amount;
@@ -86,8 +84,8 @@ public class Users extends SoftDeleteEntity {
         this.stockThemes = stockThemes != null ? stockThemes : new ArrayList<>();
     }
 
-    public void updateLifeGoals(List<String> lifeGoals) {
-        this.lifeGoals = lifeGoals != null ? lifeGoals : new ArrayList<>();
+    public void updateLifeGoal(String lifeGoal) {
+        this.lifeGoal = lifeGoal;
     }
 
     public void updatePortiType(PortiType portiType) {
