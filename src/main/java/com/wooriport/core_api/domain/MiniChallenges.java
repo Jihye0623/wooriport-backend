@@ -33,11 +33,12 @@ public class MiniChallenges extends BaseEntity {
     @Column(name = "category", nullable = false, length = 50)
     private String category;
 
-    @Column(name = "target_count")
-    private Integer targetCount;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "challenge_type", length = 20)
+    private ChallengeType challengeType;
 
-    @Column(name = "target_amount")
-    private Long targetAmount;
+    @Column(name = "target")
+    private Long target;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -47,13 +48,12 @@ public class MiniChallenges extends BaseEntity {
     @Column(name = "reward_stock_ticker", length = 20)
     private String rewardStockTicker;
 
-    @Column(name = "current_amount")
-    @Builder.Default
-    private Long currentAmount = 0L;
+    @Column(name = "estimated_saving")
+    private Long estimatedSaving;
 
-    @Column(name = "current_count")
+    @Column(name = "current_value")
     @Builder.Default
-    private Integer currentCount = 0;
+    private Long currentValue = 0L;
 
     @Column(name = "notified_threshold")
     @Builder.Default
@@ -64,6 +64,11 @@ public class MiniChallenges extends BaseEntity {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    public enum ChallengeType {
+        AMOUNT,
+        COUNT
+    }
 
     public enum ChallengeStatus {
         PENDING,        // 제안됨 (사용자 응답 대기)
@@ -91,14 +96,8 @@ public class MiniChallenges extends BaseEntity {
         this.status = ChallengeStatus.REJECTED;
     }
 
-    public void addProgress(long amount, int count) {
-        this.currentAmount += amount;
-        this.currentCount += count;
-    }
-
-    public void syncProgress(long currentAmount, int currentCount, int notifiedThreshold) {
-        this.currentAmount = currentAmount;
-        this.currentCount = currentCount;
+    public void syncProgress(long current, int notifiedThreshold) {
+        this.currentValue = current;
         this.notifiedThreshold = notifiedThreshold;
     }
 }
