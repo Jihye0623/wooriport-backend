@@ -54,6 +54,9 @@ public class AgentService {
         PortiSurveyRequestDto portiRequest = new PortiSurveyRequestDto(request.getAnswers());
         var portiResult = usersService.calculateAndSave(userId, portiRequest);
 
+        if (request.getStockThemes() != null) user.updateStockThemes(request.getStockThemes());
+        if (request.getLifeGoals() != null) user.updateLifeGoals(request.getLifeGoals());
+
         // ──────────────────────────────────────
         // STEP 2. 3개월 카테고리별 소비 집계
         // ──────────────────────────────────────

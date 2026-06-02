@@ -1,9 +1,12 @@
 package com.wooriport.core_api.domain;
 
 import com.wooriport.core_api.domain.common.SoftDeleteEntity;
+import com.wooriport.core_api.domain.common.StringListConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -50,6 +53,18 @@ public class Users extends SoftDeleteEntity {
     @Column(name = "salary")
     private Long salary;
 
+    // 관심 주식 테마 (최대 3개)
+    @Convert(converter = StringListConverter.class)
+    @Column(name = "stock_themes")
+    @Builder.Default
+    private List<String> stockThemes = new ArrayList<>();
+
+    // 관심사 - 결혼, 차, 집 등 (최대 3개)
+    @Convert(converter = StringListConverter.class)
+    @Column(name = "life_goals")
+    @Builder.Default
+    private List<String> lifeGoals = new ArrayList<>();
+
     public void updateMonthlyInvestAmount(Long amount) {
         this.monthlyInvestAmount = amount;
     }
@@ -67,6 +82,14 @@ public class Users extends SoftDeleteEntity {
     }
 
     // 비즈니스 메서드
+    public void updateStockThemes(List<String> stockThemes) {
+        this.stockThemes = stockThemes != null ? stockThemes : new ArrayList<>();
+    }
+
+    public void updateLifeGoals(List<String> lifeGoals) {
+        this.lifeGoals = lifeGoals != null ? lifeGoals : new ArrayList<>();
+    }
+
     public void updatePortiType(PortiType portiType) {
         this.portiType = portiType;
     }
