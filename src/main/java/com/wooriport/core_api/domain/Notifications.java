@@ -52,6 +52,9 @@ public class Notifications extends BaseEntity {
     public enum NotificationType {
         REPORT_READY,        // 월간 리포트 생성 완료
         SPENDING_TREND,       // 소비 추세 모니터링
-        SALARY_REBALANCING    // 월급 리밸런싱
+        SALARY_REBALANCING,   // 월급 리밸런싱
+        CHALLENGE_NAG,        // 챌린지 50/80/90% 달성 독려
+        CHALLENGE_COMPLETE,   // 챌린지 성공
+        CHALLENGE_FAILED      // 챌린지 실패
     }
 }

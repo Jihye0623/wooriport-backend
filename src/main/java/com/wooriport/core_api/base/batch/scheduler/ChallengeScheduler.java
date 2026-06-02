@@ -1,9 +1,12 @@
 package com.wooriport.core_api.base.batch.scheduler;
 
 import com.wooriport.core_api.domain.MiniChallenges;
+import com.wooriport.core_api.domain.Notifications;
 import com.wooriport.core_api.repository.MiniChallengesRepository;
+import com.wooriport.core_api.service.ChallengeAgentService;
 import com.wooriport.core_api.service.ChallengeService;
 import com.wooriport.core_api.service.ChallengeRedisService;
+import com.wooriport.core_api.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +25,8 @@ public class ChallengeScheduler {
     private final MiniChallengesRepository miniChallengesRepository;
     private final ChallengeService challengeService;
     private final ChallengeRedisService challengeRedisService;
+    private final ChallengeAgentService challengeAgentService;
+    private final NotificationService notificationService;
 
     /**
      * 매일 자정 실행 — 7일 경과 챌린지 판정
@@ -53,11 +58,16 @@ public class ChallengeScheduler {
             if (success) {
                 updated.complete();
                 log.info("[ChallengeScheduler] 챌린지 성공 — id: {}", updated.getId());
-                // TODO: FastAPI 성공 피드백 → 알림 발송
+                sendRewardNotification(userId, updated);
             } else {
                 updated.fail();
                 log.info("[ChallengeScheduler] 챌린지 실패 — id: {}", updated.getId());
-                // TODO: FastAPI 실패 피드백 → 알림 발송
+                notificationService.saveAndSend(
+                        userId,
+                        Notifications.NotificationType.CHALLENGE_FAILED,
+                        "챌린지 종료",
+                        "\"" + updated.getTitle() + "\" 챌린지가 종료되었어요. 다음엔 꼭 성공해봐요!"
+                );
             }
 
             challengeRedisService.delete(userId);
@@ -66,13 +76,28 @@ public class ChallengeScheduler {
         log.info("[ChallengeScheduler] 만료 챌린지 처리 완료");
     }
 
+    private void sendRewardNotification(UUID userId, MiniChallenges challenge) {
+        try {
+            String rewardMessage = challengeAgentService.reward(userId, challenge).getMessage();
+            notificationService.saveAndSend(
+                    userId,
+                    Notifications.NotificationType.CHALLENGE_COMPLETE,
+                    "챌린지 성공!",
+                    rewardMessage
+            );
+        } catch (Exception e) {
+            log.warn("[ChallengeScheduler] reward 알림 실패 — id: {}, 사유: {}", challenge.getId(), e.getMessage());
+            notificationService.saveAndSend(
+                    userId,
+                    Notifications.NotificationType.CHALLENGE_COMPLETE,
+                    "챌린지 성공!",
+                    "\"" + challenge.getTitle() + "\" 챌린지를 성공적으로 완료했어요!"
+            );
+        }
+    }
+
     private boolean isSuccess(MiniChallenges c) {
-        if (c.getTargetAmount() != null && c.getTargetAmount() > 0) {
-            return c.getCurrentAmount() <= c.getTargetAmount();
-        }
-        if (c.getTargetCount() != null && c.getTargetCount() > 0) {
-            return c.getCurrentCount() <= c.getTargetCount();
-        }
-        return false;
+        if (c.getTarget() == null || c.getTarget() <= 0) return false;
+        return c.getCurrentValue() <= c.getTarget();
     }
 }

@@ -3,6 +3,7 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.challenge.ChallengeCreateRequestDto;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.MiniChallenges;
+import com.wooriport.core_api.domain.Notifications;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.MiniChallengesRepository;
 import com.wooriport.core_api.repository.UserRepository;
@@ -24,6 +25,8 @@ public class ChallengeService {
     private final MiniChallengesRepository miniChallengesRepository;
     private final UserRepository userRepository;
     private final ChallengeRedisService challengeRedisService;
+    private final ChallengeAgentService challengeAgentService;
+    private final NotificationService notificationService;
 
     private static final List<Integer> THRESHOLDS = List.of(50, 80, 90);
 
@@ -37,9 +40,10 @@ public class ChallengeService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .category(request.getCategory())
-                .targetAmount(request.getTargetAmount())
-                .targetCount(request.getTargetCount())
-                .rewardStockTicker(request.getRewardStockTicker())
+                .challengeType(request.getChallengeType())
+                .target(request.getTarget())
+                .estimatedSaving(request.getEstimatedSaving())
+                .rewardStockTicker(request.getTicker())
                 .status(MiniChallenges.ChallengeStatus.IN_PROGRESS)
                 .build();
 
@@ -59,26 +63,15 @@ public class ChallengeService {
         Map<Object, Object> cache = challengeRedisService.get(userId);
         if (!category.equals(cache.get("category"))) return;
 
-        String targetAmountStr = (String) cache.get("targetAmount");
-        String targetCountStr  = (String) cache.get("targetCount");
-        int notifiedThreshold  = Integer.parseInt((String) cache.get("notifiedThreshold"));
+        MiniChallenges.ChallengeType challengeType = MiniChallenges.ChallengeType.valueOf((String) cache.get("challengeType"));
+        long target           = Long.parseLong((String) cache.get("target"));
+        int notifiedThreshold = Integer.parseInt((String) cache.get("notifiedThreshold"));
 
-        int progress = 0;
+        long delta = challengeType == MiniChallenges.ChallengeType.AMOUNT ? amount : 1L;
+        challengeRedisService.increment(userId, delta);
+        long current = Long.parseLong((String) cache.get("currentValue")) + delta;
 
-        if (targetAmountStr != null && !targetAmountStr.isBlank()) {
-            // 금액 기반
-            challengeRedisService.incrementAmount(userId, amount);
-            long currentAmount = Long.parseLong((String) cache.get("currentAmount")) + amount;
-            long targetAmount  = Long.parseLong(targetAmountStr);
-            if (targetAmount > 0) progress = (int) (currentAmount * 100 / targetAmount);
-
-        } else if (targetCountStr != null && !targetCountStr.isBlank()) {
-            // 횟수 기반 — 거래 1건 = 1회
-            challengeRedisService.incrementCount(userId, 1);
-            long currentCount = Long.parseLong((String) cache.getOrDefault("currentCount", "0")) + 1;
-            long targetCount  = Long.parseLong(targetCountStr);
-            if (targetCount > 0) progress = (int) (currentCount * 100 / targetCount);
-        }
+        int progress = target > 0 ? (int) (current * 100 / target) : 0;
 
         for (int threshold : THRESHOLDS) {
             if (progress >= threshold && notifiedThreshold < threshold) {
@@ -99,9 +92,20 @@ public class ChallengeService {
 
     // 알림 발송 + DB 동기화
     private void sendThresholdNotification(UUID userId, String challengeId, int threshold) {
-        log.info("[Challenge] 임계값 알림 — userId: {}, challengeId: {}, threshold: {}%", userId, challengeId, threshold);
         syncToDb(userId, UUID.fromString(challengeId));
-        // TODO: FastAPI 호출 → 멘트 받기 → 알림 발송
+        miniChallengesRepository.findById(UUID.fromString(challengeId)).ifPresent(challenge -> {
+            try {
+                String nagMessage = challengeAgentService.nag(userId, challenge, threshold).getNagMessage();
+                notificationService.saveAndSend(
+                        userId,
+                        Notifications.NotificationType.CHALLENGE_NAG,
+                        "챌린지 " + threshold + "% 소비!",
+                        nagMessage
+                );
+            } catch (Exception e) {
+                log.warn("[Challenge] nag 알림 실패 — userId: {}, threshold: {}%, 사유: {}", userId, threshold, e.getMessage());
+            }
+        });
     }
 
     // Redis → DB 동기화
@@ -111,10 +115,9 @@ public class ChallengeService {
         if (cache.isEmpty()) return;
 
         miniChallengesRepository.findById(challengeId).ifPresent(challenge -> {
-            long currentAmount     = Long.parseLong((String) cache.getOrDefault("currentAmount", "0"));
-            int  currentCount      = (int) Long.parseLong((String) cache.getOrDefault("currentCount", "0"));
+            long current           = Long.parseLong((String) cache.getOrDefault("currentValue", "0"));
             int  notifiedThreshold = Integer.parseInt((String) cache.getOrDefault("notifiedThreshold", "0"));
-            challenge.syncProgress(currentAmount, currentCount, notifiedThreshold);
+            challenge.syncProgress(current, notifiedThreshold);
         });
     }
 }

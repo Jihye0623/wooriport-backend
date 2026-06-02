@@ -25,13 +25,12 @@ public class ChallengeRedisService {
     public void save(UUID userId, MiniChallenges challenge) {
         String k = key(userId);
         redisTemplate.opsForHash().putAll(k, Map.of(
-                "id",                 challenge.getId().toString(),
-                "category",           challenge.getCategory(),
-                "targetAmount",       challenge.getTargetAmount() != null ? challenge.getTargetAmount().toString() : "",
-                "targetCount",        challenge.getTargetCount()  != null ? challenge.getTargetCount().toString()  : "",
-                "currentAmount",      challenge.getCurrentAmount().toString(),
-                "currentCount",       challenge.getCurrentCount().toString(),
-                "notifiedThreshold",  challenge.getNotifiedThreshold().toString()
+                "id",                challenge.getId().toString(),
+                "category",          challenge.getCategory(),
+                "challengeType",     challenge.getChallengeType().name(),
+                "target",            challenge.getTarget() != null ? challenge.getTarget().toString() : "0",
+                "currentValue",       challenge.getCurrentValue().toString(),
+                "notifiedThreshold", challenge.getNotifiedThreshold().toString()
         ));
         redisTemplate.expire(k, TTL);
     }
@@ -44,12 +43,8 @@ public class ChallengeRedisService {
         return Boolean.TRUE.equals(redisTemplate.hasKey(key(userId)));
     }
 
-    public void incrementAmount(UUID userId, long amount) {
-        redisTemplate.opsForHash().increment(key(userId), "currentAmount", amount);
-    }
-
-    public void incrementCount(UUID userId, int count) {
-        redisTemplate.opsForHash().increment(key(userId), "currentCount", count);
+    public void increment(UUID userId, long delta) {
+        redisTemplate.opsForHash().increment(key(userId), "currentValue", delta);
     }
 
     public void updateNotifiedThreshold(UUID userId, int threshold) {
