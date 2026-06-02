@@ -55,6 +55,10 @@ public class MiniChallenges extends BaseEntity {
     @Builder.Default
     private Integer currentCount = 0;
 
+    @Column(name = "notified_threshold")
+    @Builder.Default
+    private Integer notifiedThreshold = 0;
+
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
@@ -90,5 +94,11 @@ public class MiniChallenges extends BaseEntity {
     public void addProgress(long amount, int count) {
         this.currentAmount += amount;
         this.currentCount += count;
+    }
+
+    public void syncProgress(long currentAmount, int currentCount, int notifiedThreshold) {
+        this.currentAmount = currentAmount;
+        this.currentCount = currentCount;
+        this.notifiedThreshold = notifiedThreshold;
     }
 }

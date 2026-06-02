@@ -1,6 +1,10 @@
 spring:
   application:
     name: wooriport
+  data:
+    redis:
+      host: localhost
+      port: 6379
   profiles:
     include: secret
 
