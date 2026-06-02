@@ -15,31 +15,15 @@ import java.util.UUID;
 @NoArgsConstructor
 public class PortfolioFlowUpdateRequestDto {
 
-    // 흐름 총 금액 (PUT 비율 계산 기준). null 허용
+    // 흐름 총 금액. null 이면 기존 값(AI 설정값) 유지
     private Long amount;
 
-    // 모으기 통장 (Step 2). null 허용 — 비워둘 수도 있음
+    // 모으기 통장. 보유 계좌 선택 시 asset_id, 추천 통장 유지 시 null (null 이면 기존 gathering 유지)
     private UUID gatheringAssetId;
 
-    // 끌어오기 (PULL)
-    @Valid
-    private List<SourceItem> sources;
-
-    // 넣기 (PUT)
+    // 넣기 (상품)
     @Valid
     private List<ProductItem> products;
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    public static class SourceItem {
-        @NotNull
-        private UUID assetId;
-
-        @NotNull
-        @Min(0)
-        private Long amount;     // 원 단위
-    }
 
     @Getter
     @Setter
@@ -47,10 +31,6 @@ public class PortfolioFlowUpdateRequestDto {
     public static class ProductItem {
         // products 테이블 FK (옵션 — 시드/일부 경로에서 null 가능)
         private UUID productId;
-
-        // STOCK / BOND / DEPOSIT / SAVING / IRP
-        @NotNull
-        private String productType;
 
         @NotNull
         @Min(0)

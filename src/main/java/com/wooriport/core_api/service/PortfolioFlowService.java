@@ -23,9 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -41,7 +43,7 @@ public class PortfolioFlowService {
     private final UserRepository userRepository;
 
     // PATCH /portfolio-flows/{flowId}
-    // gathering_asset_id + items(PULL/PUT) 전체 교체
+    // gathering + 상품(PUT) 교체. amount/추천통장정보/AI 코멘트는 보존
     @Transactional
     public PortfolioFlowListResponseDto.FlowDto updateFlow(
             UUID userId, UUID flowId, PortfolioFlowUpdateRequestDto request) {
@@ -53,36 +55,38 @@ public class PortfolioFlowService {
             throw new IllegalArgumentException("해당 흐름에 대한 권한이 없습니다.");
         }
 
-        // 2. flow.amount + gathering 갱신
-        flow.updateAmount(request.getAmount());
+        // 2. amount — 보내준 경우에만 갱신 (없으면 AI 설정값 유지)
+        if (request.getAmount() != null) {
+            flow.updateAmount(request.getAmount());
+        }
 
-        Assets newGathering = null;
+        // 3. gathering 처리
+        //    - 보유 계좌 선택(id 있음): 해당 계좌 연결
+        //    - id 없음 + 아직 추천 상태(FK null + 추천정보 있음): 추천 계좌를 assets 에 개설 후 연결
+        //    - 그 외(이미 보유계좌 연결됨): 유지
         if (request.getGatheringAssetId() != null) {
-            newGathering = assetRepository.findByIdAndUserId(request.getGatheringAssetId(), userId)
+            Assets picked = assetRepository.findByIdAndUserId(request.getGatheringAssetId(), userId)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "모으기 통장을 찾을 수 없습니다: " + request.getGatheringAssetId()));
+            flow.linkGatheringAsset(picked);
+        } else if (flow.getGatheringAsset() == null && flow.getGatheringName() != null) {
+            Assets opened = openRecommendedAccount(flow);
+            flow.linkGatheringAsset(opened);
         }
-        flow.updateGatheringAsset(newGathering);
 
-        // 3. 기존 items 삭제 후 재INSERT (PULL → PUT 순)
+        // 4. 기존 상품 AI 코멘트 보존 (productId 매칭) — 재INSERT 시 이어붙이기 위함
+        Map<UUID, String> commentByProduct = flow.getItems().stream()
+                .filter(i -> i.getProduct() != null && i.getAiComment() != null)
+                .collect(Collectors.toMap(
+                        i -> i.getProduct().getId(),
+                        PortfolioFlowItems::getAiComment,
+                        (a, b) -> a));
+
+        // 5. 기존 items 삭제 후 상품(PUT) 재INSERT
         portfolioFlowItemRepository.deleteByFlowId(flowId);
-        // flush 로 DELETE 가 INSERT 보다 먼저 수행되도록 보장
-        portfolioFlowItemRepository.flush();
+        portfolioFlowItemRepository.flush();  // DELETE 가 INSERT 보다 먼저 수행되도록 보장
 
         List<PortfolioFlowItems> newItems = new ArrayList<>();
-
-        if (request.getSources() != null) {
-            for (var src : request.getSources()) {
-                Assets a = assetRepository.findByIdAndUserId(src.getAssetId(), userId)
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "끌어오기 통장을 찾을 수 없습니다: " + src.getAssetId()));
-                newItems.add(PortfolioFlowItems.builder()
-                        .flow(flow)
-                        .asset(a)
-                        .build());
-            }
-        }
-
         if (request.getProducts() != null) {
             for (var prod : request.getProducts()) {
                 Products p = null;
@@ -97,11 +101,13 @@ public class PortfolioFlowService {
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "넣기 자산을 찾을 수 없습니다: " + prod.getAssetId()));
                 }
+                String aiComment = p != null ? commentByProduct.get(p.getId()) : null;
                 newItems.add(PortfolioFlowItems.builder()
                         .flow(flow)
                         .asset(a)
                         .product(p)
                         .productRatio(prod.getProductRatio())
+                        .aiComment(aiComment)
                         .build());
             }
         }
@@ -126,6 +132,38 @@ public class PortfolioFlowService {
                 .orElseThrow(() -> new IllegalStateException("갱신된 흐름 조회 실패: " + flowId));
 
         return toFlowDto(refreshed);
+    }
+
+    // 추천 통장(gathering_*) 정보로 assets 에 실제 계좌를 개설 (개설 시점 잔액 0)
+    private Assets openRecommendedAccount(PortfolioFlows flow) {
+        Assets asset = Assets.builder()
+                .user(flow.getUser())
+                .institution(flow.getGatheringInstitution() != null ? flow.getGatheringInstitution() : "")
+                .accountName(flow.getGatheringName())
+                .assetType(parseAccountType(flow.getGatheringType()))
+                .balance(0L)
+                .bankType(resolveBankType(flow.getGatheringInstitution()))
+                .syncedAt(LocalDateTime.now())
+                .isSalary(false)
+                .build();
+        Assets saved = assetRepository.save(asset);
+        log.info("[PortfolioFlowService] 추천 계좌 개설 — userId={}, flowId={}, assetId={}, name={}",
+                flow.getUser().getId(), flow.getId(), saved.getId(), saved.getAccountName());
+        return saved;
+    }
+
+    private Assets.AccountType parseAccountType(String type) {
+        if (type == null) return null;
+        try {
+            return Assets.AccountType.valueOf(type);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private Assets.BankType resolveBankType(String institution) {
+        return institution != null && institution.contains("우리")
+                ? Assets.BankType.WOORI : Assets.BankType.OTHER;
     }
 
     // 끌어오기/모으기 통장 후보 — portfolios.asset_id 와 모든 흐름의 gathering_asset_id 제외
