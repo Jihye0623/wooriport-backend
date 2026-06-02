@@ -187,21 +187,39 @@ public class PortfolioFlowService {
                 .term(flow.getTerm())
                 .amount(flow.getAmount())
                 .isActive(flow.getIsActive())
-                .gatheringAsset(toGatheringDto(flow.getGatheringAsset()))
+                .isRecommendation(flow.getGatheringAsset() == null)  // 모을 통장 없음 = 계좌 추천
+                .accountComment(flow.getAccountComment())
+                .expectedRrPct(flow.getExpectedRrPct())
+                .investmentMonths(flow.getInvestmentMonths())
+                .expectedAmount(flow.getExpectedAmount())
+                .rrComment(flow.getRrComment())
+                .gatheringAsset(toGatheringDto(flow))
                 .sources(sources)
                 .products(products)
                 .build();
     }
 
-    private GatheringAssetDto toGatheringDto(Assets asset) {
-        if (asset == null) return null;
+    // 보유 계좌 선택이면 계좌에서, 계좌 추천이면 flow 에 저장된 gathering_* 에서 구성
+    private GatheringAssetDto toGatheringDto(PortfolioFlows flow) {
+        Assets asset = flow.getGatheringAsset();
+        if (asset != null) {
+            // 보유 계좌 선택
+            return GatheringAssetDto.builder()
+                    .id(asset.getId())
+                    .institution(asset.getInstitution())
+                    .accountName(asset.getAccountName())
+                    .assetNumber(asset.getAssetNumber())
+                    .assetType(asset.getAssetType() != null ? asset.getAssetType().name() : null)
+                    .balance(asset.getBalance())
+                    .build();
+        }
+        if (flow.getGatheringName() == null) return null;  // gathering 정보 자체가 없음
+        // 계좌 추천
         return GatheringAssetDto.builder()
-                .id(asset.getId())
-                .institution(asset.getInstitution())
-                .accountName(asset.getAccountName())
-                .assetNumber(asset.getAssetNumber())
-                .assetType(asset.getAssetType() != null ? asset.getAssetType().name() : null)
-                .balance(asset.getBalance())
+                .institution(flow.getGatheringInstitution())
+                .accountName(flow.getGatheringName())
+                .assetType(flow.getGatheringType())
+                .interestRate(flow.getGatheringInterestRate())
                 .build();
     }
 
@@ -227,6 +245,7 @@ public class PortfolioFlowService {
                 .productName(p != null ? p.getName() : null)
                 .productInstitution(p != null ? p.getInstitution() : null)
                 .interestRate(p != null ? p.getInterestRate() : null)
+                .comment(item.getAiComment())
                 .build();
     }
 }
