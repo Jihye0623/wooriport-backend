@@ -496,29 +496,19 @@ public class AgentService {
                 })
                 .collect(Collectors.toList());
 
-        // 2. 활성 상품 카탈로그
+        // 2. 상품 카탈로그 — 응답 portfolio[].name → product 매핑용 (요청 본문엔 더 이상 안 보냄)
         List<Products> productList = productRepository.findAllActive();
-        List<Map<String, Object>> productsBody = productList.stream()
-                .map(p -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("product_type", p.getProductType() != null ? p.getProductType().name() : null);
-                    m.put("institution", p.getInstitution());
-                    m.put("name", p.getName());
-                    m.put("interest_rate", p.getInterestRate());
-                    m.put("description", p.getDescription());
-                    return m;
-                })
-                .collect(Collectors.toList());
 
         // 3. FastAPI /asset-portfolio 호출
         Map<String, Object> flaskBody = new HashMap<>();
         flaskBody.put("user_id", userId.toString());
         flaskBody.put("invest_amount",
                 user.getMonthlyInvestAmount() != null ? user.getMonthlyInvestAmount() : 0L);
+        flaskBody.put("interest", user.getLifeGoal());              // 관심사 (결혼/차/집 등)
+        flaskBody.put("invest_interests", user.getStockThemes());   // 관심 주식 테마 (최대 3개)
         flaskBody.put("porti_type", user.getPortiType() != null ? user.getPortiType().name() : null);
         flaskBody.put("porti_comment", user.getPortiComment());
         flaskBody.put("invest_assets", investAssets);
-        flaskBody.put("products", productsBody);
 
         Map<String, Object> flaskResponse = callFlask("/portfolio/asset-portfolio", flaskBody);
 
@@ -544,19 +534,23 @@ public class AgentService {
         Map<String, Products> productByName = productList.stream()
                 .collect(Collectors.toMap(Products::getName, p -> p, (a, b) -> a));
 
-        // 6. 각 investment_flow 저장
+        // 6. 각 investment_flow 저장 (끌어오기 PULL 제거 — gathering + portfolio(PUT)만 저장)
         for (Map<String, Object> flowDto : investmentFlows) {
             String title = (String) flowDto.get("title");
             String summary = (String) flowDto.get("summary");
-            String term = mapTerm((String) flowDto.get("term"));
-            Long flowAmount = flowDto.get("amount") != null
-                    ? ((Number) flowDto.get("amount")).longValue() : 0L;
+            String term = (String) flowDto.get("term");   // 단기/중기/장기 등 원본 그대로
+            Long flowAmount = toLong(flowDto.get("amount"));
 
+            // 모을 통장: gathering_id 있으면 보유 계좌 선택, null 이면 계좌 추천(gathering_account 정보 저장)
             Assets gatheringAsset = null;
-            Object gatheringObj = flowDto.get("gathering_account");
-            if (gatheringObj != null) {
-                gatheringAsset = assetById.get(UUID.fromString(gatheringObj.toString()));
+            Object gatheringIdObj = flowDto.get("gathering_id");
+            if (gatheringIdObj != null) {
+                gatheringAsset = assetById.get(UUID.fromString(gatheringIdObj.toString()));
             }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> gatheringAccount =
+                    (Map<String, Object>) flowDto.get("gathering_account");
 
             PortfolioFlows flow = PortfolioFlows.builder()
                     .user(user)
@@ -566,27 +560,20 @@ public class AgentService {
                     .term(term)
                     .amount(flowAmount)
                     .gatheringAsset(gatheringAsset)
+                    .gatheringName(gatheringAccount != null ? (String) gatheringAccount.get("name") : null)
+                    .gatheringType(gatheringAccount != null ? (String) gatheringAccount.get("type") : null)
+                    .gatheringInstitution(gatheringAccount != null ? (String) gatheringAccount.get("institution") : null)
+                    .gatheringInterestRate(gatheringAccount != null ? toDouble(gatheringAccount.get("interest_rate")) : null)
+                    .accountComment((String) flowDto.get("account_comment"))
+                    .expectedRrPct(toDouble(flowDto.get("expected_rr_pct")))
+                    .investmentMonths(toInteger(flowDto.get("investment_months")))
+                    .expectedAmount(toDouble(flowDto.get("expected_amount")))
+                    .rrComment((String) flowDto.get("rr_comment"))
                     .isActive(false)
                     .build();
             PortfolioFlows savedFlow = portfolioFlowRepository.save(flow);
 
-            // funding_sources → PULL
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> fundingSources =
-                    (List<Map<String, Object>>) flowDto.get("funding_sources");
-            if (fundingSources != null) {
-                for (Map<String, Object> src : fundingSources) {
-                    Object assetIdObj = src.get("asset_id");
-                    if (assetIdObj == null) continue;
-                    UUID srcAssetId = UUID.fromString(assetIdObj.toString());
-                    portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
-                            .flow(savedFlow)
-                            .asset(assetById.get(srcAssetId))
-                            .build());
-                }
-            }
-
-            // portfolio → PUT
+            // portfolio → PUT (상품 + 비율 + 코멘트)
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> portfolio =
                     (List<Map<String, Object>>) flowDto.get("portfolio");
@@ -600,6 +587,7 @@ public class AgentService {
                             .flow(savedFlow)
                             .product(product)
                             .productRatio(ratio)
+                            .aiComment((String) p.get("comment"))
                             .build());
                 }
             }
@@ -803,6 +791,15 @@ public class AgentService {
         if (fullTerm.startsWith("단")) return "단";
         if (fullTerm.startsWith("장")) return "장";
         return "중";
+    }
+
+    // FastAPI 응답(JSON number)의 안전한 형 변환 헬퍼 (toLong 은 기존 메서드 재사용)
+    private static Double toDouble(Object v) {
+        return v != null ? ((Number) v).doubleValue() : null;
+    }
+
+    private static Integer toInteger(Object v) {
+        return v != null ? ((Number) v).intValue() : null;
     }
 
 
