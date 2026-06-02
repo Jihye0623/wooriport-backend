@@ -31,6 +31,7 @@ public class AgentService {
     private final PortfolioFlowRepository portfolioFlowRepository;
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
     private final EventRepository eventRepository;
+    private final InvestorMastersRepository investorMastersRepository;
 
     private final WebClient webClient;
 
@@ -136,41 +137,7 @@ public class AgentService {
                 AgentProfileResponseDto.InvestTendency.builder()
                         .safeRatio(safeRatio)
                         .riskRatio(riskRatio)
-                        .safeAssets("예적금, 채권")
-                        .riskAssets("국내외 주식, 코인")
                         .build();
-
-        // ──────────────────────────────────────
-        // STEP 5. 저축 목록 (assets 유형별 잔액)
-        // ──────────────────────────────────────
-        Map<String, Long> savingsMap = new LinkedHashMap<>();
-        savingsMap.put("입출금/CMA", 0L);
-        savingsMap.put("예금/적금",  0L);
-        savingsMap.put("주택청약",   0L);
-
-        for (Assets asset : assets) {
-            switch (asset.getAssetType()) {
-                case CHECKING, PARKING, CMA -> savingsMap.merge("입출금/CMA", asset.getBalance(), Long::sum);
-                case SAVINGS, DEPOSIT       -> savingsMap.merge("예금/적금",  asset.getBalance(), Long::sum);
-                // 주택청약은 account_purpose로 구분
-                default -> {
-                    if (asset.getAccountPurpose() != null
-                            && asset.getAccountPurpose().contains("청약")) {
-                        savingsMap.merge("주택청약", asset.getBalance(), Long::sum);
-                    }
-                }
-            }
-        }
-
-        long totalSavings = savingsMap.values().stream().mapToLong(Long::longValue).sum();
-
-        List<AgentProfileResponseDto.SavingsItem> savingsList = savingsMap.entrySet().stream()
-                .map(e -> AgentProfileResponseDto.SavingsItem.builder()
-                        .type(e.getKey())
-                        .amount(e.getValue())
-                        .ratio(totalSavings > 0 ? (int)(e.getValue() * 100 / totalSavings) : 0)
-                        .build())
-                .collect(Collectors.toList());
 
         // ──────────────────────────────────────
         // STEP 6. FastAPI /profile 호출
@@ -193,7 +160,33 @@ public class AgentService {
         Map<String, Object> flaskResponse = callFlask("/portfolio/profile", flaskBody);
 
         // ──────────────────────────────────────
-        // STEP 7. 응답 조합
+        // STEP 7. 거장 조회 (portiType 매칭)
+        // ──────────────────────────────────────
+        AgentProfileResponseDto.InvestorMasterItem investor =
+                investorMastersRepository.findByPortiTypeWithItems(portiResult.getPortiType().name())
+                        .map(m -> AgentProfileResponseDto.InvestorMasterItem.builder()
+                                .id(m.getId())
+                                .name(m.getName())
+                                .description(m.getDescription())
+                                .hashtag1(m.getHashtag1())
+                                .hashtag2(m.getHashtag2())
+                                .investmentStyle(m.getInvestmentStyle())
+                                .items(m.getItems().stream()
+                                        .map(i -> AgentProfileResponseDto.PortfolioItem.builder()
+                                                .id(i.getId())
+                                                .stockName(i.getStockName())
+                                                .changeRate(i.getChangeRate())
+                                                .sharesHeld(i.getSharesHeld())
+                                                .prevQuarterRatio(i.getPrevQuarterRatio())
+                                                .currentRatio(i.getCurrentRatio())
+                                                .holdingMonths(i.getHoldingMonths())
+                                                .build())
+                                        .collect(Collectors.toList()))
+                                .build())
+                        .orElse(null);
+
+        // ──────────────────────────────────────
+        // STEP 8. 응답 조합
         // ──────────────────────────────────────
         return AgentProfileResponseDto.builder()
                 .portiType(portiResult.getPortiType().name())
@@ -204,10 +197,9 @@ public class AgentService {
                 .fixedExpense(fixedExpense)
                 .totalFixedExpense(totalFixed)
                 .investTendency(investTendency)
-                .savingsList(savingsList)
                 .expenseComment((String) flaskResponse.get("expense_comment"))
                 .investComment((String) flaskResponse.get("invest_comment"))
-                .savingsComment((String) flaskResponse.get("savings_comment"))
+                .investor(investor)
                 .build();
     }
 
