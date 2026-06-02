@@ -579,13 +579,9 @@ public class AgentService {
                     Object assetIdObj = src.get("asset_id");
                     if (assetIdObj == null) continue;
                     UUID srcAssetId = UUID.fromString(assetIdObj.toString());
-                    Long amount = src.get("amount") != null
-                            ? ((Number) src.get("amount")).longValue() : 0L;
                     portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
                             .flow(savedFlow)
-                            .stepType(PortfolioFlowItems.StepType.PULL)
                             .asset(assetById.get(srcAssetId))
-                            .amount(amount)
                             .build());
                 }
             }
@@ -602,10 +598,7 @@ public class AgentService {
                     Products product = name != null ? productByName.get(name) : null;
                     portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
                             .flow(savedFlow)
-                            .stepType(PortfolioFlowItems.StepType.PUT)
                             .product(product)
-                            .productType(product != null && product.getProductType() != null
-                                    ? product.getProductType().name() : null)
                             .productRatio(ratio)
                             .build());
                 }
@@ -678,12 +671,11 @@ public class AgentService {
                     m.put("summary", f.getSummary());
 
                     List<Map<String, Object>> fundingSources = f.getItems().stream()
-                            .filter(i -> i.getStepType() == PortfolioFlowItems.StepType.PULL)
+                            .filter(PortfolioFlowItems::isPull)
                             .map(i -> {
                                 Map<String, Object> src = new HashMap<>();
                                 src.put("account_name", i.getAsset() != null ? i.getAsset().getAccountName() : null);
                                 src.put("asset_id", i.getAsset() != null ? i.getAsset().getId().toString() : null);
-                                src.put("amount", i.getAmount());
                                 return src;
                             })
                             .collect(Collectors.toList());
@@ -694,7 +686,7 @@ public class AgentService {
                     m.put("amount", f.getAmount());
 
                     List<Map<String, Object>> portfolio = f.getItems().stream()
-                            .filter(i -> i.getStepType() == PortfolioFlowItems.StepType.PUT)
+                            .filter(PortfolioFlowItems::isPut)
                             .map(i -> {
                                 Map<String, Object> p = new HashMap<>();
                                 p.put("name", i.getProduct() != null ? i.getProduct().getName() : null);
@@ -777,13 +769,9 @@ public class AgentService {
                     Object assetIdObj = src.get("asset_id");
                     if (assetIdObj == null) continue;
                     UUID srcAssetId = UUID.fromString(assetIdObj.toString());
-                    Long amount = src.get("amount") != null
-                            ? ((Number) src.get("amount")).longValue() : 0L;
                     portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
                             .flow(savedFlow)
-                            .stepType(PortfolioFlowItems.StepType.PULL)
                             .asset(assetById.get(srcAssetId))
-                            .amount(amount)
                             .build());
                 }
             }
@@ -799,10 +787,7 @@ public class AgentService {
                     Products product = name != null ? productByName.get(name) : null;
                     portfolioFlowItemRepository.save(PortfolioFlowItems.builder()
                             .flow(savedFlow)
-                            .stepType(PortfolioFlowItems.StepType.PUT)
                             .product(product)
-                            .productType(product != null && product.getProductType() != null
-                                    ? product.getProductType().name() : null)
                             .productRatio(ratio)
                             .build());
                 }

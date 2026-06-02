@@ -78,9 +78,7 @@ public class PortfolioFlowService {
                                 "끌어오기 통장을 찾을 수 없습니다: " + src.getAssetId()));
                 newItems.add(PortfolioFlowItems.builder()
                         .flow(flow)
-                        .stepType(PortfolioFlowItems.StepType.PULL)
                         .asset(a)
-                        .amount(src.getAmount())
                         .build());
             }
         }
@@ -101,10 +99,8 @@ public class PortfolioFlowService {
                 }
                 newItems.add(PortfolioFlowItems.builder()
                         .flow(flow)
-                        .stepType(PortfolioFlowItems.StepType.PUT)
                         .asset(a)
                         .product(p)
-                        .productType(prod.getProductType())
                         .productRatio(prod.getProductRatio())
                         .build());
             }
@@ -213,7 +209,6 @@ public class PortfolioFlowService {
         Assets a = item.getAsset();
         return SourceItemDto.builder()
                 .id(item.getId())
-                .amount(item.getAmount())
                 .assetId(a != null ? a.getId() : null)
                 .institution(a != null ? a.getInstitution() : null)
                 .accountName(a != null ? a.getAccountName() : null)
@@ -227,7 +222,7 @@ public class PortfolioFlowService {
         return ProductItemDto.builder()
                 .id(item.getId())
                 .productRatio(item.getProductRatio())
-                .productType(item.getProductType())
+                .productType(p != null && p.getProductType() != null ? p.getProductType().name() : null)
                 .productId(p != null ? p.getId() : null)
                 .productName(p != null ? p.getName() : null)
                 .productInstitution(p != null ? p.getInstitution() : null)

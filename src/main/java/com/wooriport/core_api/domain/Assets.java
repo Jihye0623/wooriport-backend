@@ -108,7 +108,8 @@ public class Assets extends SoftDeleteEntity {
         STOCK,          // 증권 계좌
         CMA,            // CMA
         IRP,            // 개인형 퇴직연금
-        ISA             // 개인종합자산관리계좌
+        ISA,            // 개인종합자산관리계좌
+        PENSION_SAVINGS // 연금저축펀드
     }
 
     public enum BankType {

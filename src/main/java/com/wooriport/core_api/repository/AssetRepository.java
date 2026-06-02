@@ -59,6 +59,19 @@ public interface AssetRepository extends JpaRepository<Assets, UUID> {
     // 기존에 findByUserIdAndIsSalaryTrue() 있으면 아래 것도 추가
     Optional<Assets> findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(UUID userId);
 
+    // 세제혜택 화면 - ISA / IRP / 연금저축펀드 계좌만 조회 (soft delete 제외)
+    @Query("""
+        SELECT a FROM Assets a
+        WHERE a.user.id = :userId
+          AND a.deletedAt IS NULL
+          AND a.assetType IN (
+              com.wooriport.core_api.domain.Assets.AccountType.ISA,
+              com.wooriport.core_api.domain.Assets.AccountType.IRP,
+              com.wooriport.core_api.domain.Assets.AccountType.PENSION_SAVINGS)
+        ORDER BY a.assetType
+        """)
+    List<Assets> findTaxBenefitAccounts(@Param("userId") UUID userId);
+
     // asset-portfolio 화면 - 끌어오기/모으기 통장 후보 (정책 완화 후)
     //  제외 조건:
     //   - 카드 (CREDIT_CARD / DEBIT_CARD)
