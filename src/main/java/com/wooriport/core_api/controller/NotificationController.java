@@ -1,10 +1,8 @@
 package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.Notification.NotificationDto;
-import com.wooriport.core_api.base.dto.Notification.SpendingTrendDetailResponseDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.config.security.CustomUserDetails;
-import com.wooriport.core_api.domain.Notifications;
 import com.wooriport.core_api.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,20 +23,6 @@ import java.util.UUID;
 public class NotificationController {
 
     private final NotificationService notificationService;
-
-    // 테스트용 api
-    @PostMapping("/test")
-    public ResponseEntity<?> testNotification(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        notificationService.saveAndSend(
-                userDetails.getId(),
-                Notifications.NotificationType.SPENDING_TREND,
-                "이상 소비 감지",
-                "이번 달 식비가 평소보다 2배 높아요. 확인해보세요.");
-
-        return ResponseEntity.ok("알림 전송 완료");
-    }
 
     // SSE 구독 (앱 진입 시 프론트가 한 번 호출)
     @Operation(summary = "SSE 알림 구독",
@@ -77,14 +61,4 @@ public class NotificationController {
         return ResponseEntity.ok(ResponseDTO.success(200, "전체 알림 읽음 처리 성공", null));
     }
 
-    @Operation(summary = "소비 추세 알림 상세 조회",
-            description = "SPENDING_TREND 알림의 AI 카테고리 분석, 주차별 소비 그래프, 카테고리별 소비 현황을 반환합니다.")
-    @GetMapping("/{id}/spending-trend")
-    public ResponseEntity<ResponseDTO<SpendingTrendDetailResponseDto>> getSpendingTrendDetail(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-
-        return ResponseEntity.ok(ResponseDTO.success(200, "소비 추세 상세 조회 성공",
-                notificationService.getSpendingTrendDetail(userDetails.getId(), id)));
-    }
 }

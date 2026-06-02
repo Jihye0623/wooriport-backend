@@ -36,7 +36,7 @@ public class TransferPlanService {
     private final AssetRepository assetRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final PortfolioRepository portfolioRepository;
     private final PortfolioFlowRepository portfolioFlowRepository;
     private final TransferExecutionRepository transferExecutionRepository;
@@ -230,14 +230,11 @@ public class TransferPlanService {
 
         transferPlanRepository.saveAll(plans);
 
-        notificationRepository.save(Notifications.builder()
-                .user(user)
-                .type(Notifications.NotificationType.SALARY_REBALANCING)
-                .title("월급이 들어왔네요!")
-                .content("새로 나눴어요! 확인하고 자동 이체할게요!")
-                .isRead(false)
-                .sentAt(LocalDateTime.now())
-                .build());
+        notificationService.saveAndSend(
+                user.getId(),
+                Notifications.NotificationType.SALARY_REBALANCING,
+                "월급이 들어왔네요!",
+                "새로 나눴어요! 확인하고 자동 이체할게요!");
 
         log.info("[TransferPlanService] 이체 계획 생성 완료 — userId: {}, 급여: {}원, portfolios: {}건, flowItems: {}건",
                 userId, monthlySalary, portfolioPlans.size(), flowPlans.size());
@@ -403,14 +400,11 @@ public class TransferPlanService {
         transferExecutionRepository.saveAll(executions);
 
         // 5. 완료 알림
-        notificationRepository.save(Notifications.builder()
-                .user(user)
-                .type(Notifications.NotificationType.SALARY_REBALANCING)
-                .title("리밸런싱 완료")
-                .content(String.format("%d건 이체 완료, %d건 실패", successCount, failCount))
-                .isRead(false)
-                .sentAt(LocalDateTime.now())
-                .build());
+        notificationService.saveAndSend(
+                user.getId(),
+                Notifications.NotificationType.SALARY_REBALANCING,
+                "리밸런싱 완료",
+                String.format("%d건 이체 완료, %d건 실패", successCount, failCount));
 
         log.info("[confirmAndExecute] 완료 — userId: {}, 성공: {}, 실패: {}",
                 userId, successCount, failCount);
