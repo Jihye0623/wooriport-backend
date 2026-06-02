@@ -32,6 +32,7 @@ public class ReportService {
     private final EventRepository eventRepository;
     private final TransactionRepository transactionRepository;
     private final PortfolioFlowRepository portfolioFlowRepository;
+    private final MiniChallengesRepository miniChallengesRepository;
     private final NotificationService notificationService;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -98,8 +99,6 @@ public class ReportService {
                 .eventComment(report.getEventComment())
                 .marketCondition(report.getMarketSummary())
                 .guideline(report.getNextMonthGuideline())
-                .performanceStatus(report.getPerformanceStatus())
-                .performanceComment(report.getPerformanceComment())
                 .assetSnapshots(assetSnapshots)
                 .weeklyExpenses(weeklyExpenses)
                 .categoryExpenses(categoryItems)
@@ -159,28 +158,32 @@ public class ReportService {
         flaskBody.put("year", year);
         flaskBody.put("month", month);
 
-        Integer goalProgress = null;
         if (eventOpt.isPresent()) {
             Event ev = eventOpt.get();
             flaskBody.put("title", ev.getTitle());
             flaskBody.put("deadline", ev.getDeadline().atStartOfDay().toString());
             flaskBody.put("target_amount", ev.getTargetAmount());
-
-            Long current = portfolioFlowRepository.findByUserIdAndEventId(userId, ev.getId())
-                    .map(PortfolioFlows::getGatheringAsset)
-                    .map(a -> a == null ? 0L : (a.getBalance() == null ? 0L : a.getBalance()))
-                    .orElse(0L);
-            Long target = ev.getTargetAmount();
-            goalProgress = (target != null && target > 0)
-                    ? (int) Math.min(100, Math.round(current * 100.0 / target))
-                    : 0;
-            flaskBody.put("goal_progress", goalProgress);
         } else {
             flaskBody.put("title", "");
             flaskBody.put("deadline", LocalDate.of(year, month, 1).atStartOfDay().toString());
             flaskBody.put("target_amount", 0);
-            flaskBody.put("goal_progress", 0);
         }
+
+        // 미니 챌린지
+        List<MiniChallenges> challenges = miniChallengesRepository.findByUserIdAndMonth(userId, from, to);
+        flaskBody.put("mini_challenges", challenges.stream()
+                .map(c -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("title",          c.getTitle());
+                    m.put("description",    c.getDescription());
+                    m.put("status",         c.getStatus().name());
+                    m.put("challenge_type", c.getChallengeType() != null ? c.getChallengeType().name().toLowerCase() : null);
+                    m.put("target",         c.getTarget());
+                    m.put("started_at",     c.getStartedAt() != null ? c.getStartedAt().toString() : null);
+                    m.put("completed_at",   c.getCompletedAt() != null ? c.getCompletedAt().toString() : null);
+                    return m;
+                })
+                .collect(Collectors.toList()));
 
         flaskBody.put("asset_snapshots", buildFlaskAssetSnapshots(snapshots));
         flaskBody.put("transaction_log", txLog);
@@ -205,11 +208,9 @@ public class ReportService {
                 .totalExpense(totalExpense)
                 .surplus(totalIncome - totalExpense)
                 .portfolioComment((String) res.get("trend_comment"))
-                .eventComment((String) res.get("event_comment"))
+                .eventComment((String) res.get("challenge_comment"))
                 .marketSummary((String) res.get("market_condition"))
                 .nextMonthGuideline((String) res.get("guideline"))
-                .performanceStatus((String) res.get("performance_status"))
-                .performanceComment((String) res.get("performance_comment"))
                 .assetSnapshotsJson(assetSnapshotsJson)
                 .weeklyExpensesJson(weeklyExpensesJson)
                 .build());
