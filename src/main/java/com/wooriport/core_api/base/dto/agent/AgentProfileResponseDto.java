@@ -2,7 +2,9 @@ package com.wooriport.core_api.base.dto.agent;
 
 import lombok.Builder;
 import lombok.Getter;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Builder
@@ -26,13 +28,12 @@ public class AgentProfileResponseDto {
     // 투자 성향 매칭
     private InvestTendency investTendency;
 
-    // 저축 목록
-    private List<SavingsItem> savingsList;
-
-    // FastAPI 생성 코멘트 3개
+    // FastAPI 생성 코멘트 2개
     private String expenseComment;
     private String investComment;
-    private String savingsComment;
+
+    // porTI 유형에 매칭된 거장
+    private InvestorMasterItem investor;
 
     @Getter @Builder
     public static class CategoryExpenseItem {
@@ -51,14 +52,27 @@ public class AgentProfileResponseDto {
     public static class InvestTendency {
         private Integer safeRatio;   // 안전 자산 비율 (%)
         private Integer riskRatio;   // 위험 자산 비율 (%)
-        private String safeAssets;   // 예적금, 채권
-        private String riskAssets;   // 국내외 주식, 코인
     }
 
     @Getter @Builder
-    public static class SavingsItem {
-        private String type;         // 입출금/CMA / 예금/적금 / 주택청약
-        private Long amount;
-        private Integer ratio;       // 전체 저축 대비 비율 (%)
+    public static class InvestorMasterItem {
+        private UUID id;
+        private String name;
+        private String description;
+        private String hashtag1;
+        private String hashtag2;
+        private String investmentStyle;
+        private List<PortfolioItem> items;
+    }
+
+    @Getter @Builder
+    public static class PortfolioItem {
+        private UUID id;
+        private String stockName;
+        private BigDecimal changeRate;
+        private Long sharesHeld;
+        private BigDecimal prevQuarterRatio;
+        private BigDecimal currentRatio;
+        private Integer holdingMonths;
     }
 }
