@@ -22,6 +22,7 @@ public class TransactionConsumer {
     private final AssetRepository assetRepository;
     private final TransactionRepository transactionRepository;
     private final TransferPlanService transferPlanService;
+    private final ChallengeService challengeService;
 
     @KafkaListener(topics = "transaction-events", groupId = "approval-detect-group")
     @Transactional
@@ -61,6 +62,13 @@ public class TransactionConsumer {
         log.info("거래 적재 — user={}, asset={}, amount={}, category={}, sender={}",
                 user.getName(), asset.getAssetNumber(),
                 amount, event.getCategory(), event.getSenderName());
+
+        // 챌린지 진행 업데이트
+        try {
+            challengeService.updateProgress(user.getId(), event.getCategory(), Math.abs(event.getAmount()));
+        } catch (Exception e) {
+            log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage());
+        }
 
         // 급여 입금 감지 → 이체 계획 자동 생성
         if (isSalary(event.getCategory())
