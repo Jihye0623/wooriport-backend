@@ -13,8 +13,7 @@ public class AgentProfileRequestDto {
     private List<String> answers;  // ["A","B","A","B","A","B","A","B","B","B"]
 
     @Size(max = 3, message = "관심 주식 테마는 최대 3개까지 입력 가능합니다.")
-    private List<String> stockThemes;
+    private List<String> stockThemes;  // index 0=1순위, 1=2순위, 2=3순위
 
-    @Size(max = 3, message = "관심사는 최대 3개까지 입력 가능합니다.")
-    private List<String> lifeGoals;
+    private String lifeGoal;
 }
