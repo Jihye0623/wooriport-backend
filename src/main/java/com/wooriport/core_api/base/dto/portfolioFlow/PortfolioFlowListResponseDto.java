@@ -58,7 +58,7 @@ public class PortfolioFlowListResponseDto {
     public static class ProductItemDto {
         private UUID id;              // portfolio_flow_items.id
         private Integer productRatio; // %
-        private String productType;   // STOCK / BOND / DEPOSIT / SAVING / IRP
+        private String productType;      // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권) / IRP / ETF / PENSION_SAVINGS
 
         private UUID productId;
         private String productName;

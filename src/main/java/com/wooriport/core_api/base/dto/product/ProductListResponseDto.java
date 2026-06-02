@@ -16,7 +16,7 @@ public class ProductListResponseDto {
     @Builder
     public static class ProductDto {
         private UUID id;
-        private String productType;    // SAVING / DEPOSIT / STOCK / BOND / IRP
+        private String productType;        // SAVING(적금) / DEPOSIT(예금) / STOCK(주식) / BOND(채권) / IRP / ETF / PENSION_SAVINGS
         private String institution;
         private String name;
         private Float interestRate;
