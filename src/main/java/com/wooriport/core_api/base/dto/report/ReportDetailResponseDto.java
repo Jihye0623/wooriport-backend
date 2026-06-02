@@ -24,8 +24,6 @@ public class ReportDetailResponseDto {
     private String eventComment;          // 목표 도달율 코멘트
     private String marketCondition;       // 시장 상황 요약
     private String guideline;             // 다음달 소비 가이드라인
-    private String performanceStatus;     // UNDERPERFORM / OUTPERFORM
-    private String performanceComment;
 
     // 주별 총자산 스냅샷 (그래프용)
     private List<AssetSnapshot> assetSnapshots;
