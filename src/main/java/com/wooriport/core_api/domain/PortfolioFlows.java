@@ -47,10 +47,43 @@ public class PortfolioFlows extends BaseEntity {
     @Column(name = "amount")
     private Long amount;
 
-    // step2 — 모을 통장 (단일)
+    // step2 — 모을 통장 (단일). 보유 계좌 선택이면 연결, 계좌 추천이면 null (추천 정보는 아래 gathering_* 에 저장)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "gathering_asset_id")
     private Assets gatheringAsset;
+
+    // 계좌 추천일 때(gatheringAsset=null)의 추천 통장 정보 — AI 응답의 gathering_account
+    @Column(name = "gathering_name", length = 100)
+    private String gatheringName;
+
+    @Column(name = "gathering_type", length = 30)
+    private String gatheringType;
+
+    @Column(name = "gathering_institution", length = 100)
+    private String gatheringInstitution;
+
+    @Column(name = "gathering_interest_rate")
+    private Double gatheringInterestRate;
+
+    // 모을 통장 추천 이유 (AI)
+    @Column(name = "account_comment", columnDefinition = "TEXT")
+    private String accountComment;
+
+    // 1년 예상 수익률 (%)
+    @Column(name = "expected_rr_pct")
+    private Double expectedRrPct;
+
+    // 예상 산정 기간 (N개월)
+    @Column(name = "investment_months")
+    private Integer investmentMonths;
+
+    // 복리 고려 N개월 후 예상 수익
+    @Column(name = "expected_amount")
+    private Double expectedAmount;
+
+    // 수익률 코멘트 (AI)
+    @Column(name = "rr_comment", columnDefinition = "TEXT")
+    private String rrComment;
 
     // 활성화 여부
     @Column(name = "is_active", nullable = false)
