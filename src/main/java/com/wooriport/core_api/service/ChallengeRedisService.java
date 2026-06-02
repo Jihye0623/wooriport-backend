@@ -29,9 +29,9 @@ public class ChallengeRedisService {
                 "category",           challenge.getCategory(),
                 "targetAmount",       challenge.getTargetAmount() != null ? challenge.getTargetAmount().toString() : "",
                 "targetCount",        challenge.getTargetCount()  != null ? challenge.getTargetCount().toString()  : "",
-                "currentAmount",      "0",
-                "currentCount",       "0",
-                "notifiedThreshold",  "0"
+                "currentAmount",      challenge.getCurrentAmount().toString(),
+                "currentCount",       challenge.getCurrentCount().toString(),
+                "notifiedThreshold",  challenge.getNotifiedThreshold().toString()
         ));
         redisTemplate.expire(k, TTL);
     }
