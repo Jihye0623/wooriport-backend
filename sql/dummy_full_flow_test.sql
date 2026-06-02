@@ -18,9 +18,9 @@
 --      이름: 테스터, 이메일: flowtest@wooriport.com,
 --      비밀번호: Test1234! (대/소/숫/특, 8자)
 --
--- 3) 이 SQL 1차 실행 (psql)  → dummy_mydata 6건 + products 6건
+-- 3) 이 SQL 1차 실행 (psql)  → dummy_mydata 8건 + products 6건
 --
--- 4) 프론트 /linking → 동의 → 우리/카카오/토스 선택 → 계좌 6개 모두 선택
+-- 4) 프론트 /linking → 동의 → 우리/카카오/토스 선택 → 계좌 8개 모두 선택
 --    /salary-select → 우리 WON 통장(또는 카뱅 입출금) 을 급여통장으로 지정
 --
 -- 5) 이 SQL 2차 실행 (psql)  → transactions 추가
@@ -65,7 +65,13 @@ INSERT INTO dummy_mydata (email, institution, asset_type, account_name, account_
     ('flowtest@wooriport.com', '카카오뱅크', 'SAVINGS',  '카뱅 26주 적금',   '적금',  '3333-33-333333',  1500000, 'OTHER', false),
     ('flowtest@wooriport.com', '우리은행',   'STOCK',    'TIGER 미국S&P500', '투자',  '5555-44-444444',  4000000, 'WOORI', false),
     ('flowtest@wooriport.com', '미래에셋',   'IRP',      '미래에셋 IRP',     '투자',  '6666-55-555555',  1000000, 'OTHER', false),
-    ('flowtest@wooriport.com', '토스뱅크',   'PARKING',  '여행 모음통장',    '여행',  '4444-66-666666',   335000, 'OTHER', false);
+    ('flowtest@wooriport.com', '토스뱅크',   'PARKING',  '여행 모음통장',    '여행',  '4444-66-666666',   335000, 'OTHER', false),
+    -- ── 세제혜택 화면(/tax-benefits) 시연용 계좌 ──
+    --   ISA / 연금저축펀드 계좌가 있어야 수익률·세액공제를 보여줄 수 있어 추가함.
+    --   · ISA            : balance = 현재 평가액(원금+수익). 납입원금은 따로 알 수 없어 PART 4 에서 시드 → 수익률 계산.
+    --   · PENSION_SAVINGS: 연금저축펀드. IRP(100만)와 합산해 세액공제 한도(900만) 시연용. balance 를 납입액으로 간주.
+    ('flowtest@wooriport.com', '미래에셋',   'ISA',             'ISA 종합계좌', '투자', '7777-77-777777', 12000000, 'OTHER', false),
+    ('flowtest@wooriport.com', '한국투자',   'PENSION_SAVINGS', '연금저축펀드', '노후', '8888-88-888888',  5000000, 'OTHER', false);
 
 -- =========================================================
 -- PART 3. transactions — Linking + SalarySelect 가 끝난 뒤에만 실행됨
@@ -187,6 +193,55 @@ BEGIN
 END $$;
 
 -- =========================================================
+-- PART 4. tax_benefit_accounts — 세제혜택 화면 보조 데이터
+--   ⚠ 2차 실행(계좌 연동 후)에만 적재됨. 1차에는 assets 가 없어 자동 스킵.
+--
+--   [왜 이 테이블이 필요한가]
+--   ISA 혜택 현황은 "수익률"인데  수익률 = (현재평가액 - 납입원금) / 납입원금  이다.
+--   그런데 우리가 가진 테이블만으로는 '납입원금' 을 알 수 없다:
+--     · assets.balance 는 현재 평가액(원금+수익) 이라 원금/수익을 분리 못 함
+--     · transactions 에는 ISA 입금 내역이 없음
+--       (TransactionConsumer 가 모든 거래를 음수=출금으로 적재 + 더미 거래는 급여통장에만 쌓음)
+--   그래서 ISA 납입원금만 이 테이블에 따로 들고 간다.
+--   (IRP/연금저축 세액공제는 balance × 공제율 로 계산되므로 별도 저장 불필요)
+--
+--   [다음 페르소나 만들 때 활용법]
+--   assets 는 /linking 연동 시 app 이 asset_number 를 매칭해 UUID 를 새로 발급한다.
+--   따라서 asset_id 를 하드코딩하지 말고, 아래처럼 asset_number 로 조회해서 넣을 것.
+-- =========================================================
+DO $$
+DECLARE
+    v_user      UUID;
+    v_isa_asset UUID;
+BEGIN
+    SELECT id INTO v_user FROM users WHERE email = 'flowtest@wooriport.com';
+    IF v_user IS NULL THEN
+        RETURN;  -- signup 전 → 스킵
+    END IF;
+
+    -- ISA 계좌(asset_number 7777-77-777777) 가 연동됐을 때만 원금 시드
+    SELECT id INTO v_isa_asset
+      FROM assets
+     WHERE user_id = v_user
+       AND asset_number = '7777-77-777777'
+       AND deleted_at IS NULL
+     LIMIT 1;
+
+    IF v_isa_asset IS NULL THEN
+        RAISE NOTICE 'ℹ ISA 계좌 미연동 → tax_benefit_accounts 시드 스킵 (/linking 후 재실행)';
+        RETURN;
+    END IF;
+
+    -- 납입원금 11,000,000  (현재 평가액 12,000,000 → 수익 1,000,000 / 수익률 ≈ 9.09%)
+    -- asset_id 가 unique 라 ON CONFLICT 로 재실행 안전하게 갱신
+    INSERT INTO tax_benefit_accounts (id, asset_id, principal, created_at)
+    VALUES (gen_random_uuid(), v_isa_asset, 11000000, NOW())
+    ON CONFLICT (asset_id) DO UPDATE SET principal = EXCLUDED.principal;
+
+    RAISE NOTICE '✅ tax_benefit_accounts 시드 완료 — ISA asset_id: %, principal: 11,000,000', v_isa_asset;
+END $$;
+
+-- =========================================================
 -- 확인 쿼리
 -- =========================================================
 SELECT '──── 시드 현황 ────' AS section;
@@ -198,5 +253,7 @@ UNION ALL
 SELECT 'assets',                      COUNT(*) FROM assets       WHERE user_id = (SELECT id FROM users WHERE email = 'flowtest@wooriport.com') AND deleted_at IS NULL
 UNION ALL
 SELECT 'transactions',                COUNT(*) FROM transactions WHERE user_id = (SELECT id FROM users WHERE email = 'flowtest@wooriport.com')
+UNION ALL
+SELECT 'tax_benefit_accounts',        COUNT(*) FROM tax_benefit_accounts WHERE asset_id IN (SELECT id FROM assets WHERE user_id = (SELECT id FROM users WHERE email = 'flowtest@wooriport.com'))
 UNION ALL
 SELECT 'products (active)',           COUNT(*) FROM products     WHERE deleted_at IS NULL;
