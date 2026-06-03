@@ -1,31 +1,33 @@
 package com.wooriport.core_api.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
-import com.wooriport.core_api.domain.Assets;
-import com.wooriport.core_api.domain.Transactions;
-import com.wooriport.core_api.domain.Users;
-import com.wooriport.core_api.repository.AssetRepository;
-import com.wooriport.core_api.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * transaction-events 컨슈머. 메시지 수신/파싱 후 처리를 각 서비스에 위임만 한다.
+ *  1) 적재     : TransactionService.persist        — 핵심 사실, 자기 트랜잭션으로 커밋
+ *  2) 챌린지   : ChallengeService.updateProgress    — 적재 커밋 후 best-effort
+ *  3) 급여     : SalaryService.handleIfSalary       — 적재 커밋 후 best-effort
+ *
+ * 부수효과(2,3)는 적재가 커밋된 뒤에 돌며, 실패해도 적재나 서로에게 영향을 주지 않는다(best-effort + 로깅).
+ * 단, Kafka at-least-once 특성상 중복 전달 시 적재/카운트가 중복될 수 있다(현재는 미보장 — 의도적 트레이드오프).
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class TransactionConsumer {
 
     private final ObjectMapper objectMapper;
-    private final AssetRepository assetRepository;
-    private final TransactionRepository transactionRepository;
-    private final TransferPlanService transferPlanService;
+    private final TransactionService transactionService;
     private final ChallengeService challengeService;
+    private final SalaryService salaryService;
 
     @KafkaListener(topics = "transaction-events", groupId = "approval-detect-group")
-    @Transactional
     public void consume(String message) {
         TransactionEventDto event;
         try {
@@ -35,59 +37,22 @@ public class TransactionConsumer {
             return;
         }
 
-        Assets asset = assetRepository.findByAssetNumber(event.getAssetNumber())
-                .orElse(null);
+        // 1. DB 적재 (자기 트랜잭션으로 커밋)
+        PersistedTransaction tx = transactionService.persist(event);
+        if (tx == null) return; // 매칭 asset 없음 → 스킵
 
-        if (asset == null) {
-            log.warn("매칭되는 asset_number 없음 — 메시지 스킵: {}", event.getAssetNumber());
-            return;
-        }
-
-        Users user = asset.getUser();
-
-        // CREDIT_CARD 결제는 출금이므로 음수로 적재 (양수=입금 / 음수=출금)
-        long amount = -Math.abs(event.getAmount());
-
-        Transactions transaction = Transactions.builder()
-                .user(user)
-                .asset(asset)
-                .amount(amount)
-                .category(event.getCategory())
-                .senderName(event.getSenderName())
-                .transactionAt(event.getTransactionAt())
-                .build();
-
-        transactionRepository.save(transaction);
-
-        log.info("거래 적재 — user={}, asset={}, amount={}, category={}, sender={}",
-                user.getName(), asset.getAssetNumber(),
-                amount, event.getCategory(), event.getSenderName());
-
-        // 챌린지 진행 업데이트
+        // 2. 챌린지 진행 업데이트 (Redis) — best-effort
         try {
-            challengeService.updateProgress(user.getId(), event.getCategory(), Math.abs(event.getAmount()));
+            challengeService.updateProgress(tx.userId(), tx.category(), tx.rawAmount());
         } catch (Exception e) {
-            log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage());
+            log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
         }
 
-        // 급여 입금 감지 → 이체 계획 자동 생성
-        if (isSalary(event.getCategory())
-                && event.getAmount() > 0
-                && asset.getId().equals(user.getAutoTransferToAssetId())) {
-            try {
-                transferPlanService.generateFromSalary(user.getId());
-                log.info("[TransactionConsumer] 급여 감지 → 이체 계획 생성 — userId: {}", user.getId());
-            } catch (Exception e) {
-                log.error("[TransactionConsumer] 이체 계획 생성 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage());
-            }
+        // 3. 급여 감지 → 이체 계획 생성 — best-effort
+        try {
+            salaryService.handleIfSalary(tx);
+        } catch (Exception e) {
+            log.error("[TransactionConsumer] 급여 처리 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
         }
-    }
-
-    private boolean isSalary(String category) {
-        if (category == null) return false;
-        return category.contains("급여")
-                || category.contains("월급")
-                || category.contains("임금")
-                || category.contains("salary");
     }
 }
