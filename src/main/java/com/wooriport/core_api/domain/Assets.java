@@ -99,17 +99,24 @@ public class Assets extends SoftDeleteEntity {
     }
 
     public enum AccountType {
-        CHECKING,       // 입출금 통장
-        PARKING,        // 파킹 통장
-        SAVINGS,        // 적금
-        CREDIT_CARD,    // 신용카드
-        DEBIT_CARD,     // 체크카드
-        DEPOSIT,        // 예금
-        STOCK,          // 증권 계좌
-        CMA,            // CMA
-        IRP,            // 개인형 퇴직연금
-        ISA,            // 개인종합자산관리계좌
-        PENSION_SAVINGS // 연금저축펀드
+        // 안정 자산
+        CHECKING,             // 입출금 통장
+        PARKING,              // 파킹 통장
+        SAVINGS,              // 정기 적금
+        DEPOSIT,              // 예금
+        CMA,                  // CMA
+        HOUSING_SUBSCRIPTION, // 주택 청약 종합 저축
+        // 중도 자산
+        IRP,                  // 개인형 퇴직연금
+        ISA,                  // 개인종합자산관리계좌
+        PENSION_SAVINGS,      // 연금저축펀드
+        BOND_FUND,            // 채권형 펀드
+        VARIABLE_ANNUITY,     // 비과세 변액연금보험
+        // 위험 자산
+        STOCK,                // 증권 계좌 (주식형 펀드 포함)
+        // 제외 (투자 성향 계산에서 제외)
+        CREDIT_CARD,          // 신용카드
+        DEBIT_CARD            // 체크카드
     }
 
     public enum BankType {

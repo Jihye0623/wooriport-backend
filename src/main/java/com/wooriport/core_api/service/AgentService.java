@@ -120,22 +120,44 @@ public class AgentService {
         // ──────────────────────────────────────
         List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
 
-        long totalBalance = assets.stream().mapToLong(Assets::getBalance).sum();
+        // CREDIT_CARD, DEBIT_CARD 제외
+        Set<Assets.AccountType> EXCLUDED = Set.of(
+                Assets.AccountType.CREDIT_CARD, Assets.AccountType.DEBIT_CARD);
 
-        // 위험 자산: STOCK
-        // 안전 자산: SAVINGS, DEPOSIT, PARKING, CMA, IRP
-        long riskBalance = assets.stream()
+        Set<Assets.AccountType> SAFE_TYPES = Set.of(
+                Assets.AccountType.CHECKING, Assets.AccountType.PARKING,
+                Assets.AccountType.SAVINGS,  Assets.AccountType.DEPOSIT,
+                Assets.AccountType.CMA,      Assets.AccountType.HOUSING_SUBSCRIPTION);
+
+        Set<Assets.AccountType> MODERATE_TYPES = Set.of(
+                Assets.AccountType.IRP,       Assets.AccountType.ISA,
+                Assets.AccountType.PENSION_SAVINGS, Assets.AccountType.BOND_FUND,
+                Assets.AccountType.VARIABLE_ANNUITY);
+
+        long totalBalance    = assets.stream()
+                .filter(a -> !EXCLUDED.contains(a.getAssetType()))
+                .mapToLong(Assets::getBalance).sum();
+
+        long safeBalance     = assets.stream()
+                .filter(a -> SAFE_TYPES.contains(a.getAssetType()))
+                .mapToLong(Assets::getBalance).sum();
+
+        long moderateBalance = assets.stream()
+                .filter(a -> MODERATE_TYPES.contains(a.getAssetType()))
+                .mapToLong(Assets::getBalance).sum();
+
+        long riskBalance     = assets.stream()
                 .filter(a -> a.getAssetType() == Assets.AccountType.STOCK)
                 .mapToLong(Assets::getBalance).sum();
 
-        long safeBalance = totalBalance - riskBalance;
-
-        int riskRatio = totalBalance > 0 ? (int)(riskBalance * 100 / totalBalance) : 0;
-        int safeRatio  = 100 - riskRatio;
+        int safeRatio     = totalBalance > 0 ? (int)(safeBalance     * 100 / totalBalance) : 0;
+        int moderateRatio = totalBalance > 0 ? (int)(moderateBalance  * 100 / totalBalance) : 0;
+        int riskRatio     = 100 - safeRatio - moderateRatio;
 
         AgentProfileResponseDto.InvestTendency investTendency =
                 AgentProfileResponseDto.InvestTendency.builder()
                         .safeRatio(safeRatio)
+                        .moderateRatio(moderateRatio)
                         .riskRatio(riskRatio)
                         .build();
 
@@ -156,6 +178,9 @@ public class AgentService {
                         "asset_type",  a.getAssetType().name(),
                         "balance",     a.getBalance()))
                 .collect(Collectors.toList()));
+        flaskBody.put("assets_safe",     safeBalance);
+        flaskBody.put("assets_moderate", moderateBalance);
+        flaskBody.put("assets_risky",    riskBalance);
 
         Map<String, Object> flaskResponse = callFlask("/portfolio/profile", flaskBody);
 

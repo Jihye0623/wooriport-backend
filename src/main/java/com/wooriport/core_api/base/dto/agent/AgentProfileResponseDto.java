@@ -50,8 +50,9 @@ public class AgentProfileResponseDto {
 
     @Getter @Builder
     public static class InvestTendency {
-        private Integer safeRatio;   // 안전 자산 비율 (%)
-        private Integer riskRatio;   // 위험 자산 비율 (%)
+        private Integer safeRatio;     // 안정 자산 비율 (%)
+        private Integer moderateRatio; // 중도 자산 비율 (%)
+        private Integer riskRatio;     // 위험 자산 비율 (%)
     }
 
     @Getter @Builder
