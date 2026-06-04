@@ -48,6 +48,9 @@ public class TransferPlans extends SoftDeleteEntity {
     @Column(name = "month", nullable = false)
     private Integer month;
 
+    @Column(name = "rebalance_comment", columnDefinition = "TEXT")
+    private String rebalanceComment;
+
     // 비즈니스 메서드
     public void confirm() {
         this.isConfirmed = true;
@@ -60,5 +63,9 @@ public class TransferPlans extends SoftDeleteEntity {
     public void updatePlannedAmount(Long amount) {
         this.plannedAmount = amount;
         this.isConfirmed = false; // 금액 변경 시 재확인 필요
+    }
+
+    public void updateRebalanceComment(String comment) {
+        this.rebalanceComment = comment;
     }
 }
