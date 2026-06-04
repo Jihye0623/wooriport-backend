@@ -29,9 +29,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final AssetSnapshotsRepository assetSnapshotsRepository;
-    private final EventRepository eventRepository;
     private final TransactionRepository transactionRepository;
-    private final PortfolioFlowRepository portfolioFlowRepository;
     private final MiniChallengesRepository miniChallengesRepository;
     private final NotificationService notificationService;
     private final WebClient webClient;
@@ -120,10 +118,7 @@ public class ReportService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException());
 
-        // 1. 활성 이벤트 조회
-        Optional<Event> eventOpt = eventRepository.findActiveByUserId(userId);
-
-        // 2. 해당 월 전체 거래 내역
+        // 1. 해당 월 전체 거래 내역
         List<Transactions> txList = transactionRepository.findAllByMonth(userId, year, month);
 
         // 2-1. 전달 지출 내역 (주별 누적 소비 비교용)
@@ -157,17 +152,6 @@ public class ReportService {
         flaskBody.put("user_id", userId.toString());
         flaskBody.put("year", year);
         flaskBody.put("month", month);
-
-        if (eventOpt.isPresent()) {
-            Event ev = eventOpt.get();
-            flaskBody.put("title", ev.getTitle());
-            flaskBody.put("deadline", ev.getDeadline().atStartOfDay().toString());
-            flaskBody.put("target_amount", ev.getTargetAmount());
-        } else {
-            flaskBody.put("title", "");
-            flaskBody.put("deadline", LocalDate.of(year, month, 1).atStartOfDay().toString());
-            flaskBody.put("target_amount", 0);
-        }
 
         // 미니 챌린지
         List<MiniChallenges> challenges = miniChallengesRepository.findByUserIdAndMonth(userId, from, to);

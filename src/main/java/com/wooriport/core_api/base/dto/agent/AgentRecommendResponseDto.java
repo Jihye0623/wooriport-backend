@@ -25,6 +25,7 @@ public class AgentRecommendResponseDto {
         private String assetType;
         private String assetNumber;
         private Long amount;
-        private String nickname;     // AI가 지은 별명 (생활비, 비상금 등)
+        private String nickname;
+        private String comment;
     }
 }
