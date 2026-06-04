@@ -57,10 +57,8 @@ public class ChallengeService {
     }
 
     // 거래 발생 시 진행 업데이트 (TransactionConsumer에서 호출)
-    @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateProgress(UUID userId, String category, long amount) {
-        try {
         if (!challengeRedisService.exists(userId)) return;
 
         Map<Object, Object> cache = challengeRedisService.get(userId);
@@ -90,9 +88,6 @@ public class ChallengeService {
             miniChallengesRepository.findById(challengeId).ifPresent(MiniChallenges::fail);
             challengeRedisService.delete(userId);
             log.info("[Challenge] 한도 초과 즉시 실패 — userId: {}, challengeId: {}", userId, challengeId);
-        }
-        } catch (Exception e) {
-            log.error("[Challenge] 진행 업데이트 실패 — userId: {}, 사유: {}", userId, e.getMessage());
         }
     }
 

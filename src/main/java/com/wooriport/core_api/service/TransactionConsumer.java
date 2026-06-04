@@ -51,10 +51,18 @@ public class TransactionConsumer {
                 kv("topic",      "transaction-events"),
                 kv("user_id",    tx.userId().toString()));
 
-        // 2. 챌린지 진행 업데이트 — @Async, 예외 처리는 ChallengeService 내부에서
-        challengeService.updateProgress(tx.userId(), tx.category(), tx.rawAmount());
+        // 2. 챌린지 진행 업데이트 (Redis) — best-effort
+        try {
+            challengeService.updateProgress(tx.userId(), tx.category(), tx.rawAmount());
+        } catch (Exception e) {
+            log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+        }
 
-        // 3. 급여 감지 → 이체 계획 생성 — @Async, 예외 처리는 SalaryService 내부에서
-        salaryService.handleIfSalary(tx);
+        // 3. 급여 감지 → 이체 계획 생성 — best-effort
+        try {
+            salaryService.handleIfSalary(tx);
+        } catch (Exception e) {
+            log.error("[TransactionConsumer] 급여 처리 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+        }
     }
 }
