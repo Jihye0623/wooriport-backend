@@ -1,5 +1,6 @@
 package com.wooriport.core_api.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.wooriport.core_api.base.dto.transfer.TransferExecuteResultDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferPlanSummaryResponseDto;
@@ -384,7 +385,12 @@ public class TransferPlanService {
 
             // 3. 잔액 체크
             if (wooriAsset.getBalance() < plan.getPlannedAmount()) {
-                log.warn("[confirmAndExecute] 잔액 부족 — planId: {}", plan.getId());
+                log.warn("transfer_failed",
+                        kv("event_type",  "transfer_failed"),
+                        kv("amount",      plan.getPlannedAmount()),
+                        kv("fail_reason", "잔액 부족"),
+                        kv("plan_id",     plan.getId().toString()),
+                        kv("user_id",     userId.toString()));
 
                 executions.add(TransferExecutions.builder()
                         .plan(plan)
@@ -402,6 +408,12 @@ public class TransferPlanService {
             wooriAsset.updateBalance(wooriAsset.getBalance() - plan.getPlannedAmount());
             plan.getAsset().updateBalance(plan.getAsset().getBalance() + plan.getPlannedAmount());
             plan.confirm();
+
+            log.info("transfer_executed",
+                    kv("event_type", "transfer_executed"),
+                    kv("amount",     plan.getPlannedAmount()),
+                    kv("plan_id",    plan.getId().toString()),
+                    kv("user_id",    userId.toString()));
 
             executions.add(TransferExecutions.builder()
                     .plan(plan)

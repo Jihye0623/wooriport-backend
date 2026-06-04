@@ -1,5 +1,6 @@
 package com.wooriport.core_api.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
@@ -33,13 +34,22 @@ public class TransactionConsumer {
         try {
             event = objectMapper.readValue(message, TransactionEventDto.class);
         } catch (Exception e) {
-            log.error("transaction-events 메시지 파싱 실패: {}", message, e);
+            log.error("kafka_consume_failed",
+                    kv("event_type", "kafka_consume_failed"),
+                    kv("topic",      "transaction-events"),
+                    kv("fail_reason", "메시지 파싱 실패"),
+                    kv("error",       e.getMessage()));
             return;
         }
 
         // 1. DB 적재 (자기 트랜잭션으로 커밋)
         PersistedTransaction tx = transactionService.persist(event);
         if (tx == null) return; // 매칭 asset 없음 → 스킵
+
+        log.info("kafka_consumed",
+                kv("event_type", "kafka_consumed"),
+                kv("topic",      "transaction-events"),
+                kv("user_id",    tx.userId().toString()));
 
         // 2. 챌린지 진행 업데이트 (Redis) — best-effort
         try {
