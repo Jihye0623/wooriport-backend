@@ -316,6 +316,7 @@ public class AgentService {
                     Long amount          = p.get("amount") != null
                             ? ((Number) p.get("amount")).longValue()
                             : 0L;
+                    String comment        = (String) p.get("comment");
 
                     Assets matched = assetIdMap.get(assetId);
 
@@ -326,6 +327,7 @@ public class AgentService {
                             .assetNumber(matched != null ? matched.getAssetNumber() : null)
                             .amount(amount)
                             .nickname(accountPurpose)
+                            .comment(comment)
                             .build();
                 })
                 .collect(Collectors.toList());
