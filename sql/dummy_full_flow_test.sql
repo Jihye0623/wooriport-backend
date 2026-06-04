@@ -71,7 +71,12 @@ INSERT INTO dummy_mydata (email, institution, asset_type, account_name, account_
     --   · ISA            : balance = 현재 평가액(원금+수익). 납입원금은 따로 알 수 없어 PART 4 에서 시드 → 수익률 계산.
     --   · PENSION_SAVINGS: 연금저축펀드. IRP(100만)와 합산해 세액공제 한도(900만) 시연용. balance 를 납입액으로 간주.
     ('flowtest@wooriport.com', '미래에셋',   'ISA',             'ISA 종합계좌', '투자', '7777-77-777777', 12000000, 'OTHER', false),
-    ('flowtest@wooriport.com', '한국투자',   'PENSION_SAVINGS', '연금저축펀드', '노후', '8888-88-888888',  5000000, 'OTHER', false);
+    ('flowtest@wooriport.com', '한국투자',   'PENSION_SAVINGS', '연금저축펀드', '노후', '8888-88-888888',  5000000, 'OTHER', false),
+    -- ── 신용카드 2개 ──
+    --   mock_payment.py 가 assets.asset_type='CREDIT_CARD' 의 asset_number 로 거래를 생성하므로
+    --   /linking 에서 이 두 카드를 연동하면 카드 결제 더미가 흘러들어옴.
+    ('flowtest@wooriport.com', '우리카드',   'CREDIT_CARD',     '우리 카드의정석', '카드', '5570-1111-2222-3333', 0, 'WOORI', false),
+    ('flowtest@wooriport.com', '신한카드',   'CREDIT_CARD',     '신한 Deep Dream', '카드', '4000-4444-5555-6666', 0, 'OTHER', false);
 
 -- =========================================================
 -- PART 3. transactions — Linking + SalarySelect 가 끝난 뒤에만 실행됨
@@ -251,6 +256,8 @@ UNION ALL
 SELECT 'dummy_mydata',                COUNT(*) FROM dummy_mydata WHERE email   = 'flowtest@wooriport.com'
 UNION ALL
 SELECT 'assets',                      COUNT(*) FROM assets       WHERE user_id = (SELECT id FROM users WHERE email = 'flowtest@wooriport.com') AND deleted_at IS NULL
+UNION ALL
+SELECT 'cards (CREDIT_CARD)',         COUNT(*) FROM assets       WHERE user_id = (SELECT id FROM users WHERE email = 'flowtest@wooriport.com') AND asset_type = 'CREDIT_CARD' AND deleted_at IS NULL
 UNION ALL
 SELECT 'transactions',                COUNT(*) FROM transactions WHERE user_id = (SELECT id FROM users WHERE email = 'flowtest@wooriport.com')
 UNION ALL
