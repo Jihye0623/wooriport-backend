@@ -118,6 +118,8 @@ public class TransferPlanService {
         long baseRemaining = userSalary - portfolioBaseline - monthlyInvestAmount;
         long remainingDiff = remaining - baseRemaining;
 
+        String rebalanceComment = plans.isEmpty() ? null : plans.get(0).getRebalanceComment();
+
         return TransferPlanSummaryResponseDto.builder()
                 .currentSalary(currentSalary)
                 .salaryDiff(currentSalary != null && user.getSalary() != null ? currentSalary - user.getSalary() : null)
@@ -129,6 +131,7 @@ public class TransferPlanService {
                 .flowItems(flowPlanItems)
                 .remaining(remaining)
                 .remainingDiff(remainingDiff)
+                .rebalanceComment(rebalanceComment)
                 .build();
     }
 
@@ -228,6 +231,10 @@ public class TransferPlanService {
             }
         }
 
+        if (rebalanceComment != null && !plans.isEmpty()) {
+            plans.get(0).updateRebalanceComment(rebalanceComment);
+        }
+
         transferPlanRepository.saveAll(plans);
 
         notificationService.saveAndSend(
@@ -259,15 +266,25 @@ public class TransferPlanService {
                                                List<Portfolios> portfolios,
                                                List<PortfolioFlows> flows) {
         try {
+            // 지난 1개월 카테고리별 지출 집계
+            LocalDateTime from = LocalDateTime.now().minusMonths(1);
+            LocalDateTime to   = LocalDateTime.now();
+            List<Map<String, Object>> categoryExpense = transactionRepository
+                    .findExpensesBetween(userId, from, to).stream()
+                    .collect(Collectors.groupingBy(
+                            t -> t.getCategory() != null ? t.getCategory() : "기타",
+                            Collectors.summingLong(t -> -t.getAmount())))
+                    .entrySet().stream()
+                    .map(e -> Map.<String, Object>of("name", e.getKey(), "expense", e.getValue()))
+                    .collect(Collectors.toList());
+
             List<Map<String, Object>> portfolioList = portfolios.stream()
                     .map(p -> {
                         Map<String, Object> m = new HashMap<>();
-                        m.put("asset_id", p.getAsset().getId().toString());
-                        String category = p.getAsset().getAccountPurpose() != null
-                                ? p.getAsset().getAccountPurpose()
-                                : "";
-                        m.put("category", category);
-                        m.put("amount", p.getAssetAmount());
+                        m.put("asset_id",       p.getAsset().getId().toString());
+                        m.put("account_purpose", p.getAsset().getAccountPurpose() != null
+                                ? p.getAsset().getAccountPurpose() : "");
+                        m.put("amount",         p.getAssetAmount());
                         return m;
                     })
                     .collect(Collectors.toList());
@@ -287,6 +304,7 @@ public class TransferPlanService {
             Map<String, Object> body = new HashMap<>();
             body.put("user_id", userId.toString());
             body.put("salary_diff", salaryDiff);
+            body.put("category_expense", categoryExpense);
             body.put("portfolio_items", portfolioList);
             body.put("flow_items", flowList);
 
@@ -437,9 +455,12 @@ public class TransferPlanService {
                         .build())
                 .collect(Collectors.toList());
 
+        String rebalanceComment = plans.isEmpty() ? null : plans.get(0).getRebalanceComment();
+
         return TransferPlanListResponseDto.builder()
                 .plans(items)
                 .totalAmount(totalAmount)
+                .rebalanceComment(rebalanceComment)
                 .build();
     }
 
@@ -461,10 +482,13 @@ public class TransferPlanService {
                         .build())
                 .collect(Collectors.toList());
 
+        String rebalanceComment = plans.isEmpty() ? null : plans.get(0).getRebalanceComment();
+
         return TransferPlanListResponseDto.builder()
                 .plans(items)
                 .totalAmount(totalAmount)
                 .salaryAmount(salaryAmount)
+                .rebalanceComment(rebalanceComment)
                 .build();
     }
 }

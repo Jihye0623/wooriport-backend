@@ -28,6 +28,9 @@ public class TransferPlanSummaryResponseDto {
     private Long remaining;            // currentSalary - portfolioTotal - flowTotal
     private Long remainingDiff;        // vs (user.salary - portfolioBaseline - flowBaseline)
 
+    // 5. AI 리밸런싱 코멘트 (급여 변동 시에만 존재)
+    private String rebalanceComment;
+
     @Getter
     @Builder
     public static class PortfolioPlanItem {

@@ -311,10 +311,10 @@ public class AgentService {
 
         List<AgentRecommendResponseDto.RebalancingPlan> plans = rawPlans.stream()
                 .map(p -> {
-                    String assetId  = (String) p.get("asset_id");
-                    String category = (String) p.get("category");
-                    Long amount = p.get("ratio") != null
-                            ? salary * ((Number) p.get("ratio")).longValue() / 100
+                    String assetId       = (String) p.get("asset_id");
+                    String accountPurpose = (String) p.get("account_purpose");
+                    Long amount          = p.get("amount") != null
+                            ? ((Number) p.get("amount")).longValue()
                             : 0L;
 
                     Assets matched = assetIdMap.get(assetId);
@@ -325,7 +325,7 @@ public class AgentService {
                             .assetType(matched != null ? matched.getAssetType().name() : null)
                             .assetNumber(matched != null ? matched.getAssetNumber() : null)
                             .amount(amount)
-                            .nickname(category)
+                            .nickname(accountPurpose)
                             .build();
                 })
                 .collect(Collectors.toList());
