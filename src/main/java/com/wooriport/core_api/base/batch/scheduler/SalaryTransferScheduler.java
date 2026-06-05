@@ -29,7 +29,7 @@ public class SalaryTransferScheduler {
      * "0 * * * * *"  → 매분 실행
      * "0 0 0 * * *"  → 매일 자정 (운영)
      */
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 0 * * *")
     public void run() {
         try {
             // executedAt 파라미터로 매일 새 Job 실행 보장

@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AssetSnapshotsRepository extends JpaRepository<AssetSnapshots, UUID> {
@@ -22,4 +23,15 @@ public interface AssetSnapshotsRepository extends JpaRepository<AssetSnapshots, 
             @Param("userId") UUID userId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
+
+    @Query("""
+        SELECT s FROM AssetSnapshots s
+        WHERE s.user.id = :userId
+          AND s.snapshotAt < :before
+        ORDER BY s.snapshotAt DESC
+        LIMIT 1
+        """)
+    Optional<AssetSnapshots> findLastBefore(
+            @Param("userId") UUID userId,
+            @Param("before") LocalDateTime before);
 }

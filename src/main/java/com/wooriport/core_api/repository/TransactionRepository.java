@@ -177,4 +177,24 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
             @Param("year") int year,
             @Param("month") int month);
 
+    // 세제혜택 계좌(ISA/IRP/PENSION_SAVINGS) 월별 납입액 합산 (양수 거래만)
+    @Query("""
+        SELECT a.assetType, SUM(t.amount)
+        FROM Transactions t
+        JOIN t.asset a
+        WHERE t.user.id = :userId
+          AND a.assetType IN (
+              com.wooriport.core_api.domain.Assets.AccountType.ISA,
+              com.wooriport.core_api.domain.Assets.AccountType.IRP,
+              com.wooriport.core_api.domain.Assets.AccountType.PENSION_SAVINGS)
+          AND t.amount > 0
+          AND EXTRACT(YEAR FROM t.transactionAt) = :year
+          AND EXTRACT(MONTH FROM t.transactionAt) = :month
+        GROUP BY a.assetType
+        """)
+    List<Object[]> sumTaxBenefitContributionByMonth(
+            @Param("userId") UUID userId,
+            @Param("year") int year,
+            @Param("month") int month);
+
 }
