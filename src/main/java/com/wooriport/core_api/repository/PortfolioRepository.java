@@ -21,4 +21,6 @@ public interface PortfolioRepository extends JpaRepository<Portfolios, UUID> {
 
     // 포트폴리오 전체 삭제 (재설정 시)
     void deleteByUserId(UUID userId);
+
+    boolean existsByAssetId(UUID assetId);
 }

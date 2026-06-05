@@ -86,7 +86,7 @@ public class AgentService {
 
         // 비율 계산
         final long totalFinal = totalVariable;
-        categoryExpense = categoryExpense.stream()
+        List<AgentProfileResponseDto.CategoryExpenseItem> sorted = categoryExpense.stream()
                 .map(c -> AgentProfileResponseDto.CategoryExpenseItem.builder()
                         .name(c.getName())
                         .amount(c.getAmount())
@@ -95,6 +95,18 @@ public class AgentService {
                 .sorted(Comparator.comparingInt(
                         AgentProfileResponseDto.CategoryExpenseItem::getRatio).reversed())
                 .collect(Collectors.toList());
+
+        // 정수 truncation으로 잃은 나머지를 가장 큰 항목에 보정
+        if (!sorted.isEmpty()) {
+            int remainder = 100 - sorted.stream().mapToInt(AgentProfileResponseDto.CategoryExpenseItem::getRatio).sum();
+            AgentProfileResponseDto.CategoryExpenseItem first = sorted.get(0);
+            sorted.set(0, AgentProfileResponseDto.CategoryExpenseItem.builder()
+                    .name(first.getName())
+                    .amount(first.getAmount())
+                    .ratio(first.getRatio() + remainder)
+                    .build());
+        }
+        categoryExpense = sorted;
 
         // ──────────────────────────────────────
         // STEP 3. 고정 지출 집계
