@@ -15,6 +15,7 @@ public class ChallengeAdjustRequestDto {
     public static class PreviousProposalItem {
         private String title;
         private String description;
+        private String challengeSubType;
         private String challengeType;
         private String category;
         private Long estimatedSaving;

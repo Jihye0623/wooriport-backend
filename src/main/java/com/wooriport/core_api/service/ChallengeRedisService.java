@@ -27,6 +27,7 @@ public class ChallengeRedisService {
         redisTemplate.opsForHash().putAll(k, Map.of(
                 "id",                challenge.getId().toString(),
                 "category",          challenge.getCategory(),
+                "challengeSubType",   challenge.getChallengeSubType().name(),
                 "challengeType",     challenge.getChallengeType().name(),
                 "target",            challenge.getTarget() != null ? challenge.getTarget().toString() : "0",
                 "currentValue",       challenge.getCurrentValue().toString(),

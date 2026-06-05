@@ -65,6 +65,8 @@ public class TransactionService {
                 asset.getId(),
                 user.getAutoTransferToAssetId(),
                 event.getCategory(),
+                event.getSenderName(),
+                event.getTransactionAt(),
                 Math.abs(event.getAmount()),
                 event.getAmount() > 0);
     }

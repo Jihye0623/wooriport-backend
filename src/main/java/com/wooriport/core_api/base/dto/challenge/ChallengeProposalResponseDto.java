@@ -15,6 +15,9 @@ public class ChallengeProposalResponseDto {
 
     private String category;
 
+    @JsonProperty("challenge_sub_type")
+    private String challengeSubType;
+
     @JsonProperty("challenge_type")
     private String challengeType;
 

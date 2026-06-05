@@ -55,6 +55,7 @@ public class ChallengeAgentService {
                     Map<String, Object> m = new HashMap<>();
                     m.put("title",            p.getTitle());
                     m.put("description",      p.getDescription());
+                    m.put("challenge_sub_type", p.getChallengeSubType());
                     m.put("challenge_type",   p.getChallengeType());
                     m.put("category",         p.getCategory());
                     m.put("estimated_saving", p.getEstimatedSaving());
