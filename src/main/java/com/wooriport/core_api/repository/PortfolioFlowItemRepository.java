@@ -41,4 +41,6 @@ public interface PortfolioFlowItemRepository extends JpaRepository<PortfolioFlow
     @Modifying
     @Query("DELETE FROM PortfolioFlowItems pi WHERE pi.flow.id = :flowId")
     void deleteByFlowId(@Param("flowId") UUID flowId);
+
+    boolean existsByAssetId(UUID assetId);
 }

@@ -2,6 +2,8 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.user.PortiSurveyRequestDto;
 import com.wooriport.core_api.base.dto.user.PortiSurveyResultDto;
+import com.wooriport.core_api.base.dto.user.UserGoalResponseDto;
+import com.wooriport.core_api.base.dto.user.UserGoalUpdateRequestDto;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.UserRepository;
@@ -18,6 +20,24 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UsersService {
     private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public UserGoalResponseDto getGoal(UUID userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+        return UserGoalResponseDto.builder()
+                .stockThemes(user.getStockThemes())
+                .lifeGoal(user.getLifeGoal())
+                .build();
+    }
+
+    @Transactional
+    public void updateGoal(UUID userId, UserGoalUpdateRequestDto request) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
+        if (request.getStockThemes() != null) user.updateStockThemes(request.getStockThemes());
+        if (request.getLifeGoal() != null) user.updateLifeGoal(request.getLifeGoal());
+    }
 
     @Transactional
     public void withdraw(UUID userId) {

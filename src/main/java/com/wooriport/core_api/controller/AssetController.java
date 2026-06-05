@@ -134,4 +134,17 @@ public class AssetController {
         return ResponseEntity.ok(
                 ResponseDTO.success(200, "자동이체 실행일 설정 성공", null));
     }
+
+    @Operation(summary = "자산 삭제",
+            description = "자산 1건을 삭제합니다. 포트폴리오 또는 포트폴리오 플로우에 포함된 자산은 삭제할 수 없습니다.")
+    @DeleteMapping("/{assetId}")
+    public ResponseEntity<ResponseDTO<Void>> deleteAsset(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable UUID assetId) {
+
+        assetService.deleteAsset(userDetails.getUserId(), assetId);
+
+        return ResponseEntity.ok(
+                ResponseDTO.success(200, "자산 삭제 성공", null));
+    }
 }
