@@ -28,12 +28,16 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
+    private final AssetRepository assetRepository;
     private final AssetSnapshotsRepository assetSnapshotsRepository;
     private final TransactionRepository transactionRepository;
     private final MiniChallengesRepository miniChallengesRepository;
+    private final PortfolioFlowItemRepository portfolioFlowItemRepository;
+    private final YahooFinanceService yahooFinanceService;
     private final NotificationService notificationService;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+
 
     @Value("${flask.ml-url}")
     private String flaskMlUrl;
@@ -86,6 +90,39 @@ public class ReportService {
                         .build())
                 .collect(Collectors.toList());
 
+        LocalDateTime from = LocalDate.of(year, month, 1).atStartOfDay();
+        LocalDateTime to   = YearMonth.of(year, month).atEndOfMonth().plusDays(1).atStartOfDay();
+
+        // 전달 대비 자산 변화율
+        List<AssetSnapshots> currSnapshots = assetSnapshotsRepository.findByUserIdAndMonth(userId, from, to);
+        Double assetChangeRate = null;
+        if (!currSnapshots.isEmpty()) {
+            long currLast = currSnapshots.get(currSnapshots.size() - 1).getTotalAmount();
+            var prevSnapshot = assetSnapshotsRepository.findLastBefore(userId, from);
+            if (prevSnapshot.isPresent() && prevSnapshot.get().getTotalAmount() > 0) {
+                long prevLast = prevSnapshot.get().getTotalAmount();
+                assetChangeRate = Math.round((currLast - prevLast) * 1000.0 / prevLast) / 10.0;
+            }
+        }
+
+        // 포트폴리오 자산 유형별 비중
+        List<ReportDetailResponseDto.PortfolioBreakdownItem> portfolioBreakdown = buildPortfolioBreakdown(userId, year, month);
+
+        // 세제혜택 납입 요약
+        ReportDetailResponseDto.TaxBenefitSummary taxBenefitSummary = buildTaxBenefitSummary(userId, year, month);
+
+        List<ReportDetailResponseDto.MiniChallengeItem> miniChallengeItems =
+                miniChallengesRepository.findByUserIdAndCompletedAtMonth(userId, from, to).stream()
+                        .map(c -> ReportDetailResponseDto.MiniChallengeItem.builder()
+                                .title(c.getTitle())
+                                .challengeSubType(c.getChallengeSubType() != null ? c.getChallengeSubType().name() : null)
+                                .startedAt(c.getStartedAt())
+                                .completedAt(c.getCompletedAt())
+                                .status(c.getStatus().name())
+                                .rewardStockTicker(c.getRewardStockTicker())
+                                .build())
+                        .collect(Collectors.toList());
+
         return ReportDetailResponseDto.builder()
                 .id(report.getId())
                 .year(report.getYear())
@@ -97,9 +134,13 @@ public class ReportService {
                 .eventComment(report.getEventComment())
                 .marketCondition(report.getMarketSummary())
                 .guideline(report.getNextMonthGuideline())
+                .assetChangeRate(assetChangeRate)
+                .portfolioBreakdown(portfolioBreakdown)
+                .taxBenefitSummary(taxBenefitSummary)
                 .assetSnapshots(assetSnapshots)
                 .weeklyExpenses(weeklyExpenses)
                 .categoryExpenses(categoryItems)
+                .miniChallenges(miniChallengeItems)
                 .createdAt(report.getCreatedAt().toString())
                 .build();
     }
@@ -154,7 +195,7 @@ public class ReportService {
         flaskBody.put("month", month);
 
         // 미니 챌린지
-        List<MiniChallenges> challenges = miniChallengesRepository.findByUserIdAndMonth(userId, from, to);
+        List<MiniChallenges> challenges = miniChallengesRepository.findByUserIdAndCompletedAtMonth(userId, from, to);
         flaskBody.put("mini_challenges", challenges.stream()
                 .map(c -> {
                     Map<String, Object> m = new HashMap<>();
@@ -428,8 +469,70 @@ public class ReportService {
         }
     }
 
+    private ReportDetailResponseDto.TaxBenefitSummary buildTaxBenefitSummary(UUID userId, int year, int month) {
+        // 이번달 납입액
+        Map<Assets.AccountType, Long> curr = toContributionMap(
+                transactionRepository.sumTaxBenefitContributionByMonth(userId, year, month));
+        long irpContribution  = curr.getOrDefault(Assets.AccountType.IRP, 0L);
+        long penContribution  = curr.getOrDefault(Assets.AccountType.PENSION_SAVINGS, 0L);
+
+        // 누적 공제액: 계좌 잔액 기준으로 TaxBenefitPolicy 적용
+        List<Assets> taxAccounts = assetRepository.findTaxBenefitAccounts(userId);
+        long irpBalance = taxAccounts.stream()
+                .filter(a -> a.getAssetType() == Assets.AccountType.IRP)
+                .mapToLong(Assets::getBalance).sum();
+        long penBalance = taxAccounts.stream()
+                .filter(a -> a.getAssetType() == Assets.AccountType.PENSION_SAVINGS)
+                .mapToLong(Assets::getBalance).sum();
+
+        long penDeductible = Math.min(penBalance, TaxBenefitPolicy.PENSION_DEDUCTION_LIMIT);
+        long irpDeductible = Math.max(0,
+                Math.min(irpBalance, TaxBenefitPolicy.PENSION_IRP_COMBINED_LIMIT - penDeductible));
+
+        Users user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        double rate = TaxBenefitPolicy.deductionRate(user.getSalary() == null ? null : user.getSalary() * 12);
+
+        return ReportDetailResponseDto.TaxBenefitSummary.builder()
+                .irpContribution(irpContribution)
+                .irpCumulativeDeduction(Math.round(irpDeductible * rate))
+                .pensionContribution(penContribution)
+                .pensionCumulativeDeduction(Math.round(penDeductible * rate))
+                .totalTaxSavings(Math.round((irpDeductible + penDeductible) * rate))
+                .build();
+    }
+
+    private Map<Assets.AccountType, Long> toContributionMap(List<Object[]> rows) {
+        Map<Assets.AccountType, Long> map = new java.util.EnumMap<>(Assets.AccountType.class);
+        for (Object[] row : rows) {
+            Assets.AccountType type = (Assets.AccountType) row[0];
+            long amount = ((Number) row[1]).longValue();
+            map.put(type, amount);
+        }
+        return map;
+    }
+
     private Long toLong(Object v) {
         if (v == null) return 0L;
         return Long.valueOf(v.toString());
+    }
+
+    private List<ReportDetailResponseDto.PortfolioBreakdownItem> buildPortfolioBreakdown(UUID userId, int year, int month) {
+        List<PortfolioFlowItems> items = portfolioFlowItemRepository.findAllPutByUserIdWithAsset(userId);
+
+        return items.stream()
+                .filter(i -> i.getProduct() != null
+                        && (i.getProduct().getProductType() == Products.ProductType.ETF
+                         || i.getProduct().getProductType() == Products.ProductType.BOND))
+                .map(i -> {
+                    Products p = i.getProduct();
+                    Double changeRate = yahooFinanceService.getMonthlyChangeRate(p.getTicker(), year, month);
+                    return ReportDetailResponseDto.PortfolioBreakdownItem.builder()
+                            .productName(p.getName())
+                            .productType(p.getProductType().name())
+                            .ticker(p.getTicker())
+                            .monthlyChangeRate(changeRate)
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }

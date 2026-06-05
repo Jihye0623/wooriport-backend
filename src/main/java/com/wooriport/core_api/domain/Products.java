@@ -31,6 +31,9 @@ public class Products extends SoftDeleteEntity {
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 
+    @Column(name = "ticker", length = 20)
+    private String ticker;
+
     // 금리 (%) — Spring Batch가 금감원 API로 매일 업데이트
     @Column(name = "interest_rate")
     private Float interestRate;
