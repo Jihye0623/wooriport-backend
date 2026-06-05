@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -30,6 +32,10 @@ public class ChallengeService {
 
     private static final List<Integer> THRESHOLDS = List.of(50, 80, 90);
 
+    private static final Set<String> DELIVERY_SENDERS  = Set.of("우아한형제들", "요기요", "쿠팡이츠");
+    private static final Set<String> ALCOHOL_KEYWORDS  = Set.of("바", "주점", "호프");
+    private static final Set<String> SHOPPING_SENDERS  = Set.of("29CM","지그재그","에이블리","올리브영","무신사","나이키","자라");
+
     // POST /challenges — 승인된 챌린지 저장 + Redis 등록
     @Transactional
     public UUID create(UUID userId, ChallengeCreateRequestDto request) {
@@ -40,6 +46,7 @@ public class ChallengeService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .category(request.getCategory())
+                .challengeSubType(request.getChallengeSubType())
                 .challengeType(request.getChallengeType())
                 .target(request.getTarget())
                 .estimatedSaving(request.getEstimatedSaving())
@@ -57,11 +64,15 @@ public class ChallengeService {
 
     // 거래 발생 시 진행 업데이트 (TransactionConsumer에서 호출)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateProgress(UUID userId, String category, long amount) {
+    public void updateProgress(UUID userId, String category, String senderName,
+                               LocalDateTime transactionAt, long amount) {
         if (!challengeRedisService.exists(userId)) return;
 
         Map<Object, Object> cache = challengeRedisService.get(userId);
-        if (!category.equals(cache.get("category"))) return;
+        MiniChallenges.ChallengeSubType subType =
+                MiniChallenges.ChallengeSubType.valueOf((String) cache.get("challengeSubType"));
+
+        if (!matchesChallenge(subType, category, senderName, transactionAt)) return;
 
         MiniChallenges.ChallengeType challengeType = MiniChallenges.ChallengeType.valueOf((String) cache.get("challengeType"));
         long target           = Long.parseLong((String) cache.get("target"));
@@ -106,6 +117,23 @@ public class ChallengeService {
                 log.warn("[Challenge] nag 알림 실패 — userId: {}, threshold: {}%, 사유: {}", userId, threshold, e.getMessage());
             }
         });
+    }
+
+    private boolean matchesChallenge(MiniChallenges.ChallengeSubType subType,
+                                     String category, String senderName,
+                                     LocalDateTime transactionAt) {
+        String sender = senderName != null ? senderName : "";
+        int hour = transactionAt != null ? transactionAt.getHour() : -1;
+
+        return switch (subType) {
+            case COFFEE     -> "카페".equals(category);
+            case DELIVERY   -> "식비".equals(category) && DELIVERY_SENDERS.contains(sender);
+            case ALCOHOL    -> "식비".equals(category) && ALCOHOL_KEYWORDS.stream().anyMatch(sender::contains);
+            case LATE_NIGHT -> "식비".equals(category) && (hour >= 23 || hour <= 4);
+            case LUNCH      -> "식비".equals(category) && (hour >= 11 && hour <= 14);
+            case SHOPPING   -> "쇼핑".equals(category) && SHOPPING_SENDERS.contains(sender);
+            case TAXI       -> "교통".equals(category) && sender.contains("택시");
+        };
     }
 
     // Redis → DB 동기화

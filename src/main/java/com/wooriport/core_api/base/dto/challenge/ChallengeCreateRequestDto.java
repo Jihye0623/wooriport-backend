@@ -1,5 +1,6 @@
 package com.wooriport.core_api.base.dto.challenge;
 
+import com.wooriport.core_api.domain.MiniChallenges.ChallengeSubType;
 import com.wooriport.core_api.domain.MiniChallenges.ChallengeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,6 +16,9 @@ public class ChallengeCreateRequestDto {
 
     @NotBlank
     private String category;
+
+    @NotNull
+    private ChallengeSubType challengeSubType;
 
     @NotNull
     private ChallengeType challengeType;

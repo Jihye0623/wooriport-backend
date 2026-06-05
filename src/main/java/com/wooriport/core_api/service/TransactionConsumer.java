@@ -53,7 +53,8 @@ public class TransactionConsumer {
 
         // 2. 챌린지 진행 업데이트 (Redis) — best-effort
         try {
-            challengeService.updateProgress(tx.userId(), tx.category(), tx.rawAmount());
+            challengeService.updateProgress(tx.userId(), tx.category(),
+                    tx.senderName(), tx.transactionAt(), tx.rawAmount());
         } catch (Exception e) {
             log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
         }

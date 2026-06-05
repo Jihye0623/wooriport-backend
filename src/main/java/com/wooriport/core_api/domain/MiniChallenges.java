@@ -37,6 +37,10 @@ public class MiniChallenges extends BaseEntity {
     @Column(name = "challenge_type", length = 20)
     private ChallengeType challengeType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "challenge_sub_type", length = 20)
+    private ChallengeSubType challengeSubType;
+
     @Column(name = "target")
     private Long target;
 
@@ -68,6 +72,16 @@ public class MiniChallenges extends BaseEntity {
     public enum ChallengeType {
         AMOUNT,
         COUNT
+    }
+
+    public enum ChallengeSubType {
+        COFFEE,      // 카페
+        DELIVERY,    // 배달 (식비 + 배달앱)
+        ALCOHOL,     // 술 (식비 + 주점)
+        LATE_NIGHT,  // 야식 (식비 + 23:00~04:00)
+        LUNCH,       // 점심 (식비 + 11:00~14:00)
+        SHOPPING,    // 쇼핑 (쇼핑 + 특정 앱)
+        TAXI         // 택시 (교통 + 택시)
     }
 
     public enum ChallengeStatus {

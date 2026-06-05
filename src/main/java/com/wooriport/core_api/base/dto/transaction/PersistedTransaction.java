@@ -1,5 +1,6 @@
 package com.wooriport.core_api.base.dto.transaction;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -11,7 +12,9 @@ public record PersistedTransaction(
         UUID assetId,
         UUID autoTransferToAssetId,
         String category,
-        long rawAmount,      // 절대값 (부호 없는 원본 금액)
-        boolean isIncome     // 원본 amount > 0 (입금 여부)
+        String senderName,
+        LocalDateTime transactionAt,
+        long rawAmount,
+        boolean isIncome
 ) {
 }
