@@ -1,14 +1,17 @@
 package com.wooriport.core_api.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.wooriport.core_api.base.dto.Auth.AuthDto;
 import com.wooriport.core_api.config.security.JwtTokenProvider;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -30,6 +33,10 @@ public class AuthService {
                 .build();
 
         userRepository.save(newUser);
+
+        log.info("signup",
+                kv("event_type", "signup"),
+                kv("user_id",    newUser.getId().toString()));
     }
 
     @Transactional(readOnly = true)
