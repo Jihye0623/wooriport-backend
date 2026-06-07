@@ -217,7 +217,16 @@ git -C c:\it\infra push origin kafka-exp-v0
 
 ### 9-1. 서버에서 준비
 1. JDK 21 설치 → `JAVA_HOME` 설정 (서버 경로로). Docker Desktop, Python 3.11+ 설치.
-2. 3개 저장소 clone, 각 브랜치 checkout (backend=exp/kafka-1-resilience, mock-server·infra=exp/kafka-baseline).
+2. **한 부모 폴더(예: `C:\it`) 아래 3개 저장소를 형제로 clone** (부모 폴더 자체는 git 아님).
+   문서/스크립트가 상대경로로 서로 참조하므로(예: backend 에서 `cd ..\infra`, producer 는 `..\mock-server`)
+   이 배치를 그대로 지켜야 함:
+   ```
+   C:\it\
+    ├─ backend\      (clone → checkout exp/kafka-1-resilience)
+    ├─ mock-server\  (clone → checkout exp/kafka-baseline)
+    └─ infra\        (clone → checkout exp/kafka-baseline)
+   ```
+   (DB/카프카 데이터는 옮길 필요 없음 — 서버에서 빈 상태로 시작, ddl-auto 가 스키마 생성 + reset-db.ps1 로 시드.)
 3. mock-server venv 생성 + `pip install -r requirements.txt` (§5-0).
 4. `backend/src/main/resources/application-secret.yml` 생성(§5-0 템플릿) — git 에 없으니 직접.
 5. **서버 사양을 phase-0.md / phase-1.md 측정환경에 새 행으로 기록** (CPU/코어/RAM/OS).
