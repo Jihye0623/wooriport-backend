@@ -2,6 +2,7 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
+import com.wooriport.core_api.base.exception.DuplicateEventException;
 import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -40,7 +42,7 @@ class TransactionServiceTest {
         PersistedTransaction result = transactionService.persist(event("UNKNOWN", 12500L, "식비"));
 
         assertThat(result).isNull();
-        verify(transactionRepository, never()).save(any());
+        verify(transactionRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -56,7 +58,7 @@ class TransactionServiceTest {
         PersistedTransaction result = transactionService.persist(event("5429-4494-5284-1827", 12500L, "식비"));
 
         ArgumentCaptor<Transactions> captor = ArgumentCaptor.forClass(Transactions.class);
-        verify(transactionRepository).save(captor.capture());
+        verify(transactionRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getAmount()).isEqualTo(-12500L); // 음수 적재
 
         assertThat(result).isNotNull();
@@ -66,6 +68,18 @@ class TransactionServiceTest {
         assertThat(result.category()).isEqualTo("식비");
         assertThat(result.rawAmount()).isEqualTo(12500L);      // 절대값
         assertThat(result.isIncome()).isTrue();                // 원본 amount > 0
+    }
+
+    @Test
+    @DisplayName("이미 처리한 event_id 면 DuplicateEventException 으로 중복을 알리고 저장하지 않는다 (멱등 적재)")
+    void persist_duplicateEventId_throwsAndDoesNotSave() {
+        TransactionEventDto e = event("5429-4494-5284-1827", 12500L, "식비");
+        e.setEventId("evt-dup-1");
+        given(transactionRepository.existsByEventId("evt-dup-1")).willReturn(true);
+
+        assertThatThrownBy(() -> transactionService.persist(e))
+                .isInstanceOf(DuplicateEventException.class);
+        verify(transactionRepository, never()).saveAndFlush(any());
     }
 
     private TransactionEventDto event(String assetNumber, long amount, String category) {

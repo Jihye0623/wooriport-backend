@@ -12,6 +12,9 @@ import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transactions, UUID> {
 
+    // 멱등 적재용: 이미 처리한 event_id 인지 확인
+    boolean existsByEventId(String eventId);
+
     // ──────────────────────────────────────
     // 이상 소비 감지용
     // ──────────────────────────────────────

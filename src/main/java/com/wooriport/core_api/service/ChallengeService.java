@@ -4,8 +4,10 @@ import com.wooriport.core_api.base.dto.challenge.ChallengeCreateRequestDto;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.MiniChallenges;
 import com.wooriport.core_api.domain.Notifications;
+import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.MiniChallengesRepository;
+import com.wooriport.core_api.repository.TransactionRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,8 @@ public class ChallengeService {
     private final ChallengeRedisService challengeRedisService;
     private final ChallengeAgentService challengeAgentService;
     private final NotificationService notificationService;
+    private final TransactionRepository transactionRepository;  // Phase 1: DB 재계산용
+    private final FaultInjector faultInjector;                   // Phase 1: 결함 주입(chaos)
 
     private static final List<Integer> THRESHOLDS = List.of(50, 80, 90);
 
@@ -66,6 +70,8 @@ public class ChallengeService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateProgress(UUID userId, String category, String senderName,
                                LocalDateTime transactionAt, long amount) {
+        faultInjector.maybeFailChallenge();   // chaos: 증분 강제 실패(DB 재계산 검증용)
+
         if (!challengeRedisService.exists(userId)) return;
 
         Map<Object, Object> cache = challengeRedisService.get(userId);
@@ -147,5 +153,41 @@ public class ChallengeService {
             int  notifiedThreshold = Integer.parseInt((String) cache.getOrDefault("notifiedThreshold", "0"));
             challenge.syncProgress(current, notifiedThreshold);
         });
+    }
+
+    /**
+     * Phase 1 (2-2): 증분 업데이트(updateProgress)가 실패했을 때, 증분 replay 대신
+     * DB(거래 = 진실의 원천)에서 다시 읽어 currentValue 를 재계산하고 Redis/DB 를 보정한다.
+     * 멱등 by construction — 몇 번 호출해도 결과는 DB 의 매칭 거래 합과 같다.
+     */
+    @Transactional
+    public void recomputeFromDb(UUID userId) {
+        MiniChallenges challenge = miniChallengesRepository
+                .findFirstByUser_IdAndStatus(userId, MiniChallenges.ChallengeStatus.IN_PROGRESS)
+                .orElse(null);
+        if (challenge == null || challenge.getChallengeSubType() == null) return;
+
+        LocalDateTime from = challenge.getStartedAt() != null
+                ? challenge.getStartedAt() : LocalDateTime.now().minusDays(7);
+        List<Transactions> txs = transactionRepository.findExpensesBetween(userId, from, LocalDateTime.now());
+
+        long recomputed = 0L;
+        for (Transactions t : txs) {
+            if (matchesChallenge(challenge.getChallengeSubType(),
+                    t.getCategory(), t.getSenderName(), t.getTransactionAt())) {
+                recomputed += (challenge.getChallengeType() == MiniChallenges.ChallengeType.AMOUNT)
+                        ? Math.abs(t.getAmount()) : 1L;
+            }
+        }
+
+        long target = challenge.getTarget() != null ? challenge.getTarget() : 0L;
+        int progress = target > 0 ? (int) (recomputed * 100 / target) : 0;
+        int notifiedThreshold = THRESHOLDS.stream().filter(th -> progress >= th).reduce((a, b) -> b).orElse(0);
+
+        challenge.syncProgress(recomputed, notifiedThreshold);   // DB 보정(@Transactional flush)
+        challengeRedisService.save(userId, challenge);           // Redis 를 엔티티 값으로 재기록
+
+        log.info("[Challenge] DB 재계산 보정 — userId: {}, currentValue: {}, progress: {}%",
+                userId, recomputed, progress);
     }
 }

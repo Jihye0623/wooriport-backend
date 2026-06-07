@@ -27,6 +27,15 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    # Phase 1: 급여 재처리 토픽 발행용 프로듀서 (JSON 문자열)
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+# Phase 1 결함 주입(chaos) 토글 — 기본 off. 평소엔 아무 영향 없음.
+chaos:
+  salary-fail:    ${CHAOS_SALARY_FAIL:none}      # none | once | always — 급여 처리 강제 실패(재처리 토픽 데모)
+  challenge-fail: ${CHAOS_CHALLENGE_FAIL:none}   # none | once | always — 챌린지 증분 강제 실패(DB 재계산 데모)
 
   batch:
     job:

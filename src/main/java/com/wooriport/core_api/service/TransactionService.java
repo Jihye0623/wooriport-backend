@@ -4,6 +4,7 @@ package com.wooriport.core_api.service;
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
 import com.wooriport.core_api.base.dto.transaction.SalaryTransactionListResponseDto;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
+import com.wooriport.core_api.base.exception.DuplicateEventException;
 import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
@@ -11,6 +12,7 @@ import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,11 @@ public class TransactionService {
      */
     @Transactional
     public PersistedTransaction persist(TransactionEventDto event) {
+        // 멱등 적재: 이미 처리한 event_id 면 중복 전달 → 예외로 알려 컨슈머가 스킵하게 한다.
+        if (event.getEventId() != null && transactionRepository.existsByEventId(event.getEventId())) {
+            throw new DuplicateEventException(event.getEventId());
+        }
+
         Assets asset = assetRepository.findByAssetNumber(event.getAssetNumber())
                 .orElse(null);
 
@@ -46,6 +53,7 @@ public class TransactionService {
         long amount = -Math.abs(event.getAmount());
 
         Transactions transaction = Transactions.builder()
+                .eventId(event.getEventId())
                 .user(user)
                 .asset(asset)
                 .amount(amount)
@@ -54,7 +62,13 @@ public class TransactionService {
                 .transactionAt(event.getTransactionAt())
                 .build();
 
-        transactionRepository.save(transaction);
+        try {
+            // saveAndFlush 로 즉시 flush 해야 unique 충돌(동시 중복)을 여기서 잡을 수 있다.
+            transactionRepository.saveAndFlush(transaction);
+        } catch (DataIntegrityViolationException e) {
+            // 동시성으로 같은 event_id 가 먼저 적재된 경우 → 중복으로 처리
+            throw new DuplicateEventException(event.getEventId());
+        }
 
         log.info("거래 적재 — user={}, asset={}, amount={}, category={}, sender={}",
                 user.getName(), asset.getAssetNumber(),

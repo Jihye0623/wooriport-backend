@@ -2,6 +2,7 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.domain.MiniChallenges;
 import com.wooriport.core_api.repository.MiniChallengesRepository;
+import com.wooriport.core_api.repository.TransactionRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ class ChallengeServiceTest {
     @Mock ChallengeRedisService challengeRedisService;
     @Mock ChallengeAgentService challengeAgentService;
     @Mock NotificationService notificationService;
+    @Mock TransactionRepository transactionRepository;
+    @Mock FaultInjector faultInjector;   // chaos off (mock no-op)
     @InjectMocks ChallengeService challengeService;
 
     private final UUID userId = UUID.randomUUID();

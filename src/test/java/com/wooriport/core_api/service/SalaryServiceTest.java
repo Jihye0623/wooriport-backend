@@ -18,6 +18,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class SalaryServiceTest {
 
     @Mock TransferPlanService transferPlanService;
+    @Mock FaultInjector faultInjector;   // chaos off (mock no-op)
     @InjectMocks SalaryService salaryService;
 
     private final UUID userId = UUID.randomUUID();

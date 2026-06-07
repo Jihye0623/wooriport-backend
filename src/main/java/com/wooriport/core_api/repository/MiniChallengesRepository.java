@@ -7,9 +7,13 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MiniChallengesRepository extends JpaRepository<MiniChallenges, UUID> {
+
+    // 챌린지 재계산(recomputeFromDb)용: 유저의 진행 중 챌린지 1건
+    Optional<MiniChallenges> findFirstByUser_IdAndStatus(UUID userId, MiniChallenges.ChallengeStatus status);
 
     // 만료된 IN_PROGRESS 챌린지 (startedAt + 7일 <= 지금)
     @Query("SELECT c FROM MiniChallenges c WHERE c.status = 'IN_PROGRESS' AND c.startedAt <= :expiredBefore")

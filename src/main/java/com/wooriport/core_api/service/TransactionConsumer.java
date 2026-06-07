@@ -3,13 +3,16 @@ package com.wooriport.core_api.service;
 import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
+import com.wooriport.core_api.base.dto.transaction.SalaryRetryMessage;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
+import com.wooriport.core_api.base.exception.DuplicateEventException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 /**
@@ -31,6 +34,7 @@ public class TransactionConsumer {
     private final ChallengeService challengeService;
     private final SalaryService salaryService;
     private final MeterRegistry meterRegistry;  // 실험 측정 하네스 (Phase 0~)
+    private final KafkaTemplate<String, String> kafkaTemplate;  // Phase 1: 급여 재처리 토픽 발행
 
     @KafkaListener(topics = "transaction-events", groupId = "approval-detect-group")
     public void consume(String message) {
@@ -53,10 +57,21 @@ public class TransactionConsumer {
                     .record(System.currentTimeMillis() - event.getProducedAt(), TimeUnit.MILLISECONDS);
         }
 
-        // 1. DB 적재 (자기 트랜잭션으로 커밋)
+        // 1. DB 적재 (자기 트랜잭션으로 커밋). 멱등: 중복 event_id 는 DuplicateEventException → 스킵.
         Timer.Sample persistSample = Timer.start(meterRegistry);
-        PersistedTransaction tx = transactionService.persist(event);
-        persistSample.stop(meterRegistry.timer("tx.persist"));
+        PersistedTransaction tx;
+        try {
+            tx = transactionService.persist(event);
+        } catch (DuplicateEventException e) {
+            meterRegistry.counter("tx.duplicate.detected").increment();
+            log.info("kafka_duplicate_skipped",
+                    kv("event_type", "kafka_duplicate_skipped"),
+                    kv("topic",      "transaction-events"),
+                    kv("event_id",   event.getEventId()));
+            return;
+        } finally {
+            persistSample.stop(meterRegistry.timer("tx.persist"));
+        }
         if (tx == null) return; // 매칭 asset 없음 → 스킵
 
         log.info("kafka_consumed",
@@ -64,27 +79,46 @@ public class TransactionConsumer {
                 kv("topic",      "transaction-events"),
                 kv("user_id",    tx.userId().toString()));
 
-        // 2. 챌린지 진행 업데이트 (Redis) — best-effort
+        // 2. 챌린지 진행 업데이트 (Redis 증분) — 실패 시 증분 replay 대신 DB 재계산(2-2)
         Timer.Sample challengeSample = Timer.start(meterRegistry);
         try {
             challengeService.updateProgress(tx.userId(), tx.category(),
                     tx.senderName(), tx.transactionAt(), tx.rawAmount());
         } catch (Exception e) {
             meterRegistry.counter("tx.challenge.failed").increment();
-            log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+            log.error("[TransactionConsumer] 챌린지 증분 실패 → DB 재계산 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+            try {
+                challengeService.recomputeFromDb(tx.userId());
+                meterRegistry.counter("tx.challenge.recomputed").increment();
+            } catch (Exception re) {
+                log.error("[TransactionConsumer] 챌린지 DB 재계산도 실패 — userId: {}, 사유: {}", tx.userId(), re.getMessage());
+            }
         } finally {
             challengeSample.stop(meterRegistry.timer("tx.challenge"));
         }
 
-        // 3. 급여 감지 → 이체 계획 생성 — best-effort
+        // 3. 급여 감지 → 이체 계획 생성. 실패 시 유실 불가 액션이므로 재처리 토픽으로 발행(1-1)
         Timer.Sample salarySample = Timer.start(meterRegistry);
         try {
             salaryService.handleIfSalary(tx);
         } catch (Exception e) {
             meterRegistry.counter("tx.salary.failed").increment();
-            log.error("[TransactionConsumer] 급여 처리 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+            publishSalaryRetry(tx, e);
         } finally {
             salarySample.stop(meterRegistry.timer("tx.salary"));
+        }
+    }
+
+    /** 급여 처리 실패분을 재처리 토픽으로 발행 (유실 방지). */
+    private void publishSalaryRetry(PersistedTransaction tx, Exception cause) {
+        try {
+            String payload = objectMapper.writeValueAsString(new SalaryRetryMessage(tx, 1));
+            kafkaTemplate.send(SalaryRetryConsumer.RETRY_TOPIC, tx.userId().toString(), payload);
+            meterRegistry.counter("tx.salary.retry").increment();
+            log.warn("[TransactionConsumer] 급여 처리 실패 → 재처리 토픽 발행 — userId: {}, 사유: {}",
+                    tx.userId(), cause.getMessage());
+        } catch (Exception pubEx) {
+            log.error("[TransactionConsumer] 급여 재처리 발행 실패 — userId: {}, 사유: {}", tx.userId(), pubEx.getMessage());
         }
     }
 }

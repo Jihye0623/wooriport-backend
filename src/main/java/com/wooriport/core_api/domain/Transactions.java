@@ -29,6 +29,11 @@ public class Transactions {
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
+    // 멱등키 (PG 거래고유번호). 중복 적재 방지용 unique 제약.
+    // 과거 데이터는 null 일 수 있음(Postgres 는 NULL 중복 허용).
+    @Column(name = "event_id", unique = true, length = 64)
+    private String eventId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
