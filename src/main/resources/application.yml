@@ -56,6 +56,13 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      # Kafka 실험 측정용 Timer 퍼센타일(클라이언트 계산) 노출 → Grafana
+      percentiles:
+        tx.e2e.latency: 0.5, 0.95, 0.99
+        tx.persist: 0.5, 0.95, 0.99
+        tx.challenge: 0.5, 0.95, 0.99
+        tx.salary: 0.5, 0.95, 0.99
 
 flask:
   ml-url: http://localhost:8000

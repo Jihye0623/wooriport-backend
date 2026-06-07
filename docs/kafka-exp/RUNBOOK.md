@@ -20,22 +20,40 @@
 ---
 
 ## 트랙 A — 성능 측정 (chaos OFF)
-단계 간 처리량/지연 비교용.
+단계 간 처리량/지연 비교용. (경로는 저장소 루트 `backend/` 기준, infra는 `../infra/`)
 
+```powershell
+# 1. 인프라 기동 (kafka, postgres, redis, prometheus, grafana, kafka-ui)
+cd ..\infra; docker compose up -d; cd ..\backend
+
+# 2. DB 리셋 + 시드
+powershell -File scripts\kafka-exp\reset-db.ps1
+
+# 3. 백엔드 기동 (chaos 프로파일 OFF). 기동 완료까지 대기.
+.\gradlew bootRun
+
+# 4. 워밍업 (폐기)
+python ..\mock-server\mock_payment.py --count 5000
+
+# 5. DB 리셋 다시
+powershell -File scripts\kafka-exp\reset-db.ps1
+
+# 6. 본런 (시작/종료 시각은 스크립트가 produce 기준으로 출력)
+python ..\mock-server\mock_payment.py --count 100000
+
+# 7. consumer lag 0 도달까지 drain 대기 → Grafana "컨슈머 랙" 패널 또는:
+#    docker exec wooriport-kafka /opt/kafka/bin/kafka-consumer-groups.sh `
+#      --bootstrap-server localhost:9092 --describe --group approval-detect-group
+
+# 8. 정합성/건수 확인
+Get-Content sql\verify_kafka_test.sql -Raw | docker exec -i wooriport-db psql -U wooriport -d wooriport
 ```
-1. docker compose up -d              # infra/ 에서 (kafka, postgres, redis, prometheus, grafana, kafka-ui)
-2. DB 리셋 + 시드 적용               # truncate + sql/dummy_kafka_test.sql
-3. 백엔드 기동 (chaos 프로파일 OFF)
-4. 워밍업: mock_payment --count 5000 --rate 0   → 폐기
-5. DB 리셋 + 시드 다시 적용
-6. 본런: mock_payment --count 100000 --rate 0   → 시작/종료 시각 기록
-7. consumer lag 0 도달까지 drain      # Kafka UI 또는 kafka-consumer-groups --describe
-8. 산출:
-   - 처리량 = N / (drain wall-clock)  [msg/s]
-   - E2E 지연 p50/p95/p99             [Prometheus: tx.e2e.latency]
-   - lag drain 곡선                   [Grafana 스샷]
-9. phase-N.md 표에 기록 + Grafana 스샷
-```
+
+산출:
+- 처리량 = N / (lag 0 도달까지 wall-clock)  [msg/s] — consume 기준. produce 기준 속도는 스크립트 로그.
+- E2E 지연 p50/p95/p99 — Grafana "E2E 지연" 패널 (Prometheus `tx_e2e_latency_seconds{quantile=...}`)
+- lag drain 곡선 — Grafana "컨슈머 랙" 패널 스샷
+- → phase-N.md 표에 기록
 
 ### 측정 소스
 - 처리량/지연/lag: Grafana 대시보드 (Prometheus 스크랩)

@@ -4,6 +4,9 @@ import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -27,6 +30,7 @@ public class TransactionConsumer {
     private final TransactionService transactionService;
     private final ChallengeService challengeService;
     private final SalaryService salaryService;
+    private final MeterRegistry meterRegistry;  // 실험 측정 하네스 (Phase 0~)
 
     @KafkaListener(topics = "transaction-events", groupId = "approval-detect-group")
     public void consume(String message) {
@@ -42,8 +46,17 @@ public class TransactionConsumer {
             return;
         }
 
+        meterRegistry.counter("tx.consumed").increment();
+        // E2E 지연: 발행(producedAt) → 컨슈머 진입 시점
+        if (event.getProducedAt() != null) {
+            meterRegistry.timer("tx.e2e.latency")
+                    .record(System.currentTimeMillis() - event.getProducedAt(), TimeUnit.MILLISECONDS);
+        }
+
         // 1. DB 적재 (자기 트랜잭션으로 커밋)
+        Timer.Sample persistSample = Timer.start(meterRegistry);
         PersistedTransaction tx = transactionService.persist(event);
+        persistSample.stop(meterRegistry.timer("tx.persist"));
         if (tx == null) return; // 매칭 asset 없음 → 스킵
 
         log.info("kafka_consumed",
@@ -52,18 +65,26 @@ public class TransactionConsumer {
                 kv("user_id",    tx.userId().toString()));
 
         // 2. 챌린지 진행 업데이트 (Redis) — best-effort
+        Timer.Sample challengeSample = Timer.start(meterRegistry);
         try {
             challengeService.updateProgress(tx.userId(), tx.category(),
                     tx.senderName(), tx.transactionAt(), tx.rawAmount());
         } catch (Exception e) {
+            meterRegistry.counter("tx.challenge.failed").increment();
             log.error("[TransactionConsumer] 챌린지 진행 업데이트 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+        } finally {
+            challengeSample.stop(meterRegistry.timer("tx.challenge"));
         }
 
         // 3. 급여 감지 → 이체 계획 생성 — best-effort
+        Timer.Sample salarySample = Timer.start(meterRegistry);
         try {
             salaryService.handleIfSalary(tx);
         } catch (Exception e) {
+            meterRegistry.counter("tx.salary.failed").increment();
             log.error("[TransactionConsumer] 급여 처리 실패 — userId: {}, 사유: {}", tx.userId(), e.getMessage());
+        } finally {
+            salarySample.stop(meterRegistry.timer("tx.salary"));
         }
     }
 }
