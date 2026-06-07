@@ -56,7 +56,7 @@ EmbeddedKafka + Testcontainers)를 채택. 4개 시나리오 전부 green.
 | 챌린지 증분 오차 | DB 재계산 자가복구 (C1) |
 
 ## 재현 방법
-RUNBOOK.md 참고.
+HANDOFF.md §5(재현 절차) 참고.
 - 트랙 A: `reset-db.ps1` → `mock_payment.py --count 100000` → 60s 구간 처리량 + `actuator/prometheus` 의 `tx_*`.
 - 트랙 B(자동): `gradlew test --tests "*KafkaResilienceIntegrationTest"`.
 - 트랙 B(라이브): `CHAOS_SALARY_FAIL`/`CHAOS_CHALLENGE_FAIL` 환경변수로 기동 후 시나리오 발행.

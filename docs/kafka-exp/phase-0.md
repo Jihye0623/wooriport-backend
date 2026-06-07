@@ -57,7 +57,7 @@
 4. persist 내부 `findByAssetNumber` 조회 1회 → 배치 단계에서 자산 캐싱/일괄조회 여지.
 
 ## 재현 방법
-RUNBOOK.md 트랙 A 참고. 요약:
+HANDOFF.md §5(재현 절차, 트랙 A) 참고. 요약:
 ```
 powershell -File scripts\kafka-exp\reset-db.ps1
 python ..\mock-server\mock_payment.py --count 100000

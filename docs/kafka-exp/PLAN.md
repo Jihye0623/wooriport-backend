@@ -113,7 +113,7 @@ N건 선생성 후 일괄 produce, 종료 시 `flush()` 1회. 기존 무한루�
 - **Grafana 대시보드**: 처리량(rate)·E2E p50/95/99·lag·에러율 패널. JSON을 `infra/grafana/provisioning/`에 커밋.
 - **DB 리셋 + 고정 시드**: `sql/dummy_kafka_test.sql` 기반 truncate+seed 스크립트. 매 런 전 동일 자산/챌린지 셋.
 
-### A-4. 측정 프로토콜 → `docs/kafka-exp/RUNBOOK.md` 참고
+### A-4. 측정 프로토콜 → `docs/kafka-exp/HANDOFF.md` §5 참고
 
 ---
 
@@ -180,7 +180,6 @@ CHAOS_KILL_BEFORE_COMMIT=true   # 적재 커밋 후 offset commit 전 강제 종
 ```
 docs/kafka-exp/
  ├─ PLAN.md        (이 문서)
- ├─ RUNBOOK.md     (측정 절차)
  ├─ phase-0.md ~ phase-3.md   (단계별 설정 + 원시수치 + 스샷)
  └─ RESULTS.md     (최종 비교표: 처리량/지연/정합성/튜닝값)
 ```
@@ -198,7 +197,7 @@ docs/kafka-exp/
 - [ ] A-2 버스트 모드: mock_payment.py --count/--rate
 - [ ] A-3 하네스: Micrometer Timer/Counter + Kafka 메트릭 바인딩 + Grafana 대시보드 JSON
 - [ ] A-4 DB 리셋+시드 스크립트
-- [ ] RUNBOOK대로 baseline 측정 → docs/kafka-exp/phase-0.md 기록
+- [ ] HANDOFF §5대로 baseline 측정 → docs/kafka-exp/phase-0.md 기록
 - [ ] tag kafka-exp-v0
 - [ ] → Phase 1 착수
 

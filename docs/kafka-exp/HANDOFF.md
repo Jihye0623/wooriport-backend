@@ -1,6 +1,6 @@
 # Kafka 실험 핸드오프 (Phase 0~1 완료 → Phase 2 인계)
 
-> 한 장으로 보는 인계 문서. 상세는 같은 폴더의 PLAN/RUNBOOK/phase-0/phase-1/capture-guide 참고.
+> 한 장으로 보는 인계 문서. 상세는 같은 폴더의 PLAN/phase-0/phase-1/capture-guide 참고.
 > **Phase 2 담당자는 §4(하드웨어) → §5(재현) 를 먼저 읽으세요.**
 
 ---
@@ -75,7 +75,7 @@
 2) git checkout kafka-exp-v1  → 동일 측정 → phase-1.md 표에 추가
 3) 이후 Phase 2 측정과 비교
 ```
-통제 변수(§RUNBOOK): 동일 머신·동일 N(100k)·동일 시드·워밍업 5k 폐기·하네스 동결·다른 부하 끄기.
+통제 변수(§9-3): 동일 머신·동일 N(100k)·동일 시드·워밍업 5k 폐기·하네스 동결·다른 부하 끄기.
 
 ---
 
@@ -155,7 +155,6 @@ $env:CHAOS_SALARY_FAIL="always"; $env:CHAOS_CHALLENGE_FAIL="once"
 | 파일 | 내용 |
 |------|------|
 | PLAN.md | 전체 실험 계획(0~3), 설계 결정 |
-| RUNBOOK.md | 측정 절차(트랙 A/B), 통제 변수 |
 | phase-0.md | baseline 측정 + 병목 분석 |
 | phase-1.md | 정합성 로직 + 성능 트레이드오프 측정 |
 | capture-guide.md | 결함 복구 스샷 캡쳐법 + 라이브 증거 |
