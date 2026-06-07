@@ -69,3 +69,9 @@ python ..\mock-server\mock_payment.py --count 100000
 - 구 `dummy_kafka_test.sql` 은 현재 스키마(phone/finance_type 컬럼 제거)와 안 맞아 깨짐 →
   `seed_kafka_test.sql`(2026 스키마)로 대체, reset-db.ps1 이 이를 사용.
 - mock_payment.py 는 Windows cp949 콘솔 대응 위해 stdout UTF-8 고정 + docker cp 기반 시드 적용.
+- **기존 테스트 staleness 정리(빌드 green 화)**: baseline 시작 시점에 단위테스트 3개
+  (ChallengeServiceTest/SalaryServiceTest/TransactionConsumerTest) + 통합테스트 1개가
+  이미 깨져 있었음(운영 코드만 진화하고 테스트 미반영 — `updateProgress` 3→5 인자,
+  `PersistedTransaction` 6→8 필드, challenge subType 매칭 도입). 현재 시그니처/로직에 맞춰 수정.
+  TransactionConsumerTest 는 Phase 0 에서 추가한 MeterRegistry 의존성 때문에 SimpleMeterRegistry 주입 추가.
+  → `./gradlew test` 17개 전부 통과. 운영 로직 무변경이라 측정 수치는 불변.

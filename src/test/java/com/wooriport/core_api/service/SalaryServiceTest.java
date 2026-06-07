@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.Mockito.verify;
@@ -41,7 +42,8 @@ class SalaryServiceTest {
     void salaryButNotAutoTransferAsset_doesNotGenerate() {
         // assetId 와 autoTransferToAssetId 가 다른 경우
         salaryService.handleIfSalary(
-                new PersistedTransaction(userId, assetId, UUID.randomUUID(), "급여", 3_000_000L, true));
+                new PersistedTransaction(userId, assetId, UUID.randomUUID(), "급여",
+                        "(주)카카오", LocalDateTime.of(2026, 5, 25, 9, 0), 3_000_000L, true));
         verifyNoInteractions(transferPlanService);
     }
 
@@ -54,6 +56,7 @@ class SalaryServiceTest {
 
     /** assetId == autoTransferToAssetId (자동이체 계좌 일치) 인 거래 */
     private PersistedTransaction tx(String category, boolean isIncome, UUID assetId) {
-        return new PersistedTransaction(userId, assetId, assetId, category, 3_000_000L, isIncome);
+        return new PersistedTransaction(userId, assetId, assetId, category,
+                "(주)카카오", LocalDateTime.of(2026, 5, 25, 9, 0), 3_000_000L, isIncome);
     }
 }

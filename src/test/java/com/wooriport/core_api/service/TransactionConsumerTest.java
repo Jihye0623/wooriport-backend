@@ -3,6 +3,8 @@ package com.wooriport.core_api.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +31,8 @@ class TransactionConsumerTest {
     @Mock TransactionService transactionService;
     @Mock ChallengeService challengeService;
     @Mock SalaryService salaryService;
+    // 측정 하네스. 실제 메트릭 동작을 위해 SimpleMeterRegistry 를 spy 로 주입.
+    @Spy MeterRegistry meterRegistry = new SimpleMeterRegistry();
     @InjectMocks TransactionConsumer consumer;
 
     private static final String VALID_JSON = """
@@ -62,7 +67,8 @@ class TransactionConsumerTest {
 
         consumer.consume(VALID_JSON);
 
-        verify(challengeService).updateProgress(tx.userId(), tx.category(), tx.rawAmount());
+        verify(challengeService).updateProgress(tx.userId(), tx.category(), tx.senderName(),
+                tx.transactionAt(), tx.rawAmount());
         verify(salaryService).handleIfSalary(tx);
     }
 
@@ -72,7 +78,7 @@ class TransactionConsumerTest {
         PersistedTransaction tx = sampleTx();
         given(transactionService.persist(any())).willReturn(tx);
         willThrow(new RuntimeException("redis down"))
-                .given(challengeService).updateProgress(any(), any(), anyLong());
+                .given(challengeService).updateProgress(any(), any(), any(), any(), anyLong());
 
         consumer.consume(VALID_JSON);
 
@@ -82,6 +88,6 @@ class TransactionConsumerTest {
     private PersistedTransaction sampleTx() {
         return new PersistedTransaction(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "식비", 12500L, true);
+                "식비", "스타벅스 코리아", LocalDateTime.of(2026, 5, 14, 12, 34, 56), 12500L, true);
     }
 }
