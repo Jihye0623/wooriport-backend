@@ -5,7 +5,11 @@ import com.wooriport.core_api.domain.MiniChallenges;
 import com.wooriport.core_api.domain.Portfolios;
 import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
+import com.wooriport.core_api.domain.FailedSalaryAction;
 import com.wooriport.core_api.repository.*;
+import com.wooriport.core_api.service.AdminSalaryDltService;
 import com.wooriport.core_api.service.ChallengeRedisService;
 import com.wooriport.core_api.service.FaultInjector;
 import com.wooriport.core_api.service.NotificationService;
@@ -83,6 +87,9 @@ class KafkaResilienceIntegrationTest {
     @Autowired TransferPlanRepository transferPlanRepository;
     @Autowired ChallengeRedisService challengeRedisService;
     @Autowired MeterRegistry meterRegistry;
+    @Autowired FailedSalaryActionRepository failedSalaryActionRepository;
+    @Autowired AdminSalaryDltService adminSalaryDltService;
+    @Autowired ObjectMapper objectMapper;
 
     // ─────────────────────────────────────────────────────────────
     // D1 — 멱등 적재: 같은 event_id 2번 → 행 1개만
@@ -199,12 +206,39 @@ class KafkaResilienceIntegrationTest {
         userRepository.save(user);
 
         double dltBefore = counter("tx.salary.dlt");
+        UUID userId = user.getId();
 
         kafkaTemplate.send("transaction-events", autoAsset.getAssetNumber(),
                 payload("evt-s2-" + UUID.randomUUID(), autoAsset.getAssetNumber(), 3_000_000, "급여"));
 
         await().atMost(25, TimeUnit.SECONDS)
                 .until(() -> counter("tx.salary.dlt") - dltBefore >= 1);   // DLT 격리 확인
+        // DLT 컨슈머가 failed_salary_actions 에 감사기록으로 적재(관리자 대시보드용)
+        await().atMost(25, TimeUnit.SECONDS).untilAsserted(() ->
+                assertThat(failedSalaryActionRepository
+                        .findByStatusOrderByCreatedAtDesc(FailedSalaryAction.Status.PENDING)
+                        .stream().anyMatch(f -> f.getUserId().equals(userId))).isTrue());
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // S3 — 관리자 redrive: DLT 격리 항목을 attempt 0 으로 재투입 + RESOLVED
+    // ─────────────────────────────────────────────────────────────
+    @Test
+    @DisplayName("S3 관리자 redrive 는 DLT 항목을 attempt 0 으로 재투입하고 RESOLVED 로 표시한다")
+    void adminRedrive_resetsToZeroAndResolves() throws Exception {
+        UUID userId = UUID.randomUUID();
+        PersistedTransaction tx = new PersistedTransaction(userId, UUID.randomUUID(), UUID.randomUUID(),
+                "급여", "회사", LocalDateTime.now(), 3_000_000L, true);
+        FailedSalaryAction f = failedSalaryActionRepository.save(FailedSalaryAction.builder()
+                .userId(userId).payload(objectMapper.writeValueAsString(tx)).attempts(3)
+                .lastError("테스트 격리").status(FailedSalaryAction.Status.PENDING).build());
+
+        double before = counter("tx.salary.dlt.redriven");
+        adminSalaryDltService.redrive(f.getId());   // retry 토픽으로 attempt 0 재발행 + RESOLVED
+
+        assertThat(failedSalaryActionRepository.findById(f.getId()).orElseThrow().getStatus())
+                .isEqualTo(FailedSalaryAction.Status.RESOLVED);
+        assertThat(counter("tx.salary.dlt.redriven") - before).isEqualTo(1.0);
     }
 
     // ─────────────────────────────────────────────────────────────
