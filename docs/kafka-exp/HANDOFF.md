@@ -193,3 +193,50 @@ git checkout -b exp/kafka-2-batch
 - **cp949 콘솔**에서 파이썬 이모지/한글 print 죽음 → mock_payment.py 가 stdout UTF-8 고정.
 - **JPA 수동 id + save()** → merge 로 "unsaved-value" 에러. 테스트에서 챌린지 id 수동지정 금지(@GeneratedValue 사용).
 - **application-secret.yml 은 gitignore** → 팀원에게 별도 공유 필요(§5-0).
+
+---
+
+## 9. 서버컴 셋업 체크리스트 (Windows, all-in-one 실험 장비)
+
+> 결정: **서버 OS Windows, infra+backend+producer 전부 서버 localhost 에서, 서버에서 v0·v1 부터 재측정.**
+> → 네트워크 변수 제거 + 모든 단계 동일 머신 = 공정한 비교.
+
+### 9-0. ⚠️ 먼저: 실험 브랜치/태그를 remote 에 push (현재 로컬 전용)
+`exp/*` 브랜치와 `kafka-exp-v0/v1` 태그는 아직 push 안 됨. 3개 저장소 각각:
+```powershell
+# backend
+git -C c:\it\backend push origin exp/kafka-0-baseline exp/kafka-1-resilience
+git -C c:\it\backend push origin kafka-exp-v0 kafka-exp-v1
+# mock-server
+git -C c:\it\mock-server push origin exp/kafka-baseline
+git -C c:\it\mock-server push origin kafka-exp-v0
+# infra
+git -C c:\it\infra push origin exp/kafka-baseline
+git -C c:\it\infra push origin kafka-exp-v0
+```
+> 공용 팀 레포라 push 전 팀과 합의. (단계별 태그가 있어야 서버에서 `git checkout kafka-exp-v0` 로 재현 가능)
+
+### 9-1. 서버에서 준비
+1. JDK 21 설치 → `JAVA_HOME` 설정 (서버 경로로). Docker Desktop, Python 3.11+ 설치.
+2. 3개 저장소 clone, 각 브랜치 checkout (backend=exp/kafka-1-resilience, mock-server·infra=exp/kafka-baseline).
+3. mock-server venv 생성 + `pip install -r requirements.txt` (§5-0).
+4. `backend/src/main/resources/application-secret.yml` 생성(§5-0 템플릿) — git 에 없으니 직접.
+5. **서버 사양을 phase-0.md / phase-1.md 측정환경에 새 행으로 기록** (CPU/코어/RAM/OS).
+
+### 9-2. 서버에서 재측정 (Phase 2 전 필수)
+```powershell
+cd c:\it\infra; docker compose up -d
+cd c:\it\backend
+# v0 재측정
+git checkout kafka-exp-v0
+# (bootRun → §5-3 트랙A 100k 측정) → phase-0.md 표에 "<서버명>" 행 추가
+# v1 재측정
+git checkout kafka-exp-v1
+# (bootRun → §5-3 동일) → phase-1.md 표에 "<서버명>" 행 추가
+```
+→ 이제 **서버 기준 v0/v1** 이 생김. Phase 2(`exp/kafka-2-batch`) 측정은 이 값과 비교(§4 상대 델타 규칙).
+
+### 9-3. 운영 수칙(통제변수)
+- 측정 중 서버에서 다른 무거운 작업 금지.
+- producer 도 서버 localhost 에서 실행(노트북에서 쏘지 않기).
+- 동일 N(100k)·동일 시드·워밍업 5k 폐기 유지.
