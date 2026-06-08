@@ -3,6 +3,8 @@ package com.wooriport.core_api.controller;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.base.dto.stock.StockDetailResponseDto;
 import com.wooriport.core_api.config.security.CustomUserDetails;
+import com.wooriport.core_api.domain.MiniChallenges;
+import com.wooriport.core_api.repository.MiniChallengesRepository;
 import com.wooriport.core_api.repository.ProductRepository;
 import com.wooriport.core_api.service.YahooFinanceService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,13 +22,23 @@ public class StockController {
 
     private final YahooFinanceService yahooFinanceService;
     private final ProductRepository productRepository;
+    private final MiniChallengesRepository miniChallengesRepository;
 
-    @Operation(summary = "티커 현재가 및 30일 차트 조회. amount(원) 전달 시 살 수 있는 주 수 포함.")
-    @GetMapping("/{ticker:.+}")
+    @Operation(summary = "진행 중인 미니챌린지의 보상 주식 시세 및 살 수 있는 주 수 조회")
+    @GetMapping
     public ResponseEntity<ResponseDTO<StockDetailResponseDto>> getStock(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable String ticker,
-            @RequestParam(required = false) Long amount) {
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        MiniChallenges challenge = miniChallengesRepository
+                .findFirstByUserIdAndStatus(userDetails.getUserId(), MiniChallenges.ChallengeStatus.IN_PROGRESS)
+                .orElse(null);
+
+        if (challenge == null || challenge.getRewardStockTicker() == null) {
+            return ResponseEntity.ok(ResponseDTO.fail(404, "진행 중인 챌린지가 없습니다"));
+        }
+
+        String ticker = challenge.getRewardStockTicker();
+        Long amount = challenge.getEstimatedSaving();
 
         StockDetailResponseDto data = yahooFinanceService.getStockDetail(ticker, amount);
         if (data == null) {

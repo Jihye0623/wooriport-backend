@@ -1,8 +1,13 @@
 package com.wooriport.core_api.service;
 
+import com.wooriport.core_api.base.dto.Notification.NagNotificationResponseDto;
 import com.wooriport.core_api.base.dto.Notification.NotificationDto;
+import com.wooriport.core_api.base.dto.stock.StockDetailResponseDto;
+import com.wooriport.core_api.domain.MiniChallenges;
 import com.wooriport.core_api.domain.Notifications;
+import com.wooriport.core_api.repository.MiniChallengesRepository;
 import com.wooriport.core_api.repository.NotificationRepository;
+import com.wooriport.core_api.repository.ProductRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +32,9 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final MiniChallengesRepository miniChallengesRepository;
+    private final ProductRepository productRepository;
+    private final YahooFinanceService yahooFinanceService;
 
     // 접속 중인 사용자 SSE 연결 관리
     private final ConcurrentHashMap<UUID, SseEmitter> emitters = new ConcurrentHashMap<>();
@@ -139,5 +147,48 @@ public class NotificationService {
     @Transactional
     public void readAllNotifications(UUID userId) {
         notificationRepository.markAllAsReadByUserId(userId);
+    }
+
+    // ──────────────────────────────────────
+    // 잔소리(NAG) 알림 1건 조회 + 읽음 처리
+    // ──────────────────────────────────────
+    @Transactional
+    public NagNotificationResponseDto getNagNotification(UUID userId, UUID notificationId) {
+        Notifications nag = notificationRepository.findByIdAndUserId(notificationId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않거나 권한이 없는 알림입니다."));
+
+        nag.markAsRead();
+
+        MiniChallenges challenge = miniChallengesRepository
+                .findFirstByUserIdAndStatus(userId, MiniChallenges.ChallengeStatus.IN_PROGRESS)
+                .orElse(null);
+
+        String challengeTitle = challenge != null ? challenge.getTitle() : null;
+        String stockName = null;
+        Double affordableShares = null;
+
+        if (challenge != null && challenge.getRewardStockTicker() != null) {
+            StockDetailResponseDto detail = yahooFinanceService
+                    .getStockDetail(challenge.getRewardStockTicker(), challenge.getEstimatedSaving());
+
+            stockName = productRepository.findFirstByTicker(challenge.getRewardStockTicker())
+                    .map(p -> p.getName())
+                    .orElse(detail != null ? detail.getName() : challenge.getRewardStockTicker());
+
+            if (detail != null) {
+                affordableShares = detail.getAffordableShares();
+            }
+        }
+
+        return NagNotificationResponseDto.builder()
+                .id(nag.getId())
+                .type(nag.getType().name())
+                .challengeTitle(challengeTitle)
+                .stockName(stockName)
+                .affordableShares(affordableShares)
+                .content(nag.getContent())
+                .isRead(nag.getIsRead())
+                .sentAt(nag.getSentAt().toString())
+                .build();
     }
 }

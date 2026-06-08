@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface MiniChallengesRepository extends JpaRepository<MiniChallenges, UUID> {
@@ -18,6 +19,8 @@ public interface MiniChallengesRepository extends JpaRepository<MiniChallenges, 
     // 서버 재시작 시 Redis 복구용 — user JOIN FETCH로 LazyInitializationException 방지
     @Query("SELECT c FROM MiniChallenges c JOIN FETCH c.user WHERE c.status = com.wooriport.core_api.domain.MiniChallenges.ChallengeStatus.IN_PROGRESS")
     List<MiniChallenges> findAllInProgress();
+
+    Optional<MiniChallenges> findFirstByUserIdAndStatus(UUID userId, MiniChallenges.ChallengeStatus status);
 
     // 월간 리포트 생성용 — 해당 월에 시작된 챌린지
     @Query("SELECT c FROM MiniChallenges c WHERE c.user.id = :userId AND c.startedAt >= :from AND c.startedAt < :to")
