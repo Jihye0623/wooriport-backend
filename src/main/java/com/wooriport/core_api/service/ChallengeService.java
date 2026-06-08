@@ -1,5 +1,6 @@
 package com.wooriport.core_api.service;
 
+import com.wooriport.core_api.base.dto.challenge.ChallengeActiveResponseDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeCreateRequestDto;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.MiniChallenges;
@@ -60,6 +61,31 @@ public class ChallengeService {
         challengeRedisService.save(userId, challenge);
 
         return challenge.getId();
+    }
+
+    // GET /challenges/active — 진행 중(IN_PROGRESS) 챌린지 조회 (없으면 null)
+    @Transactional(readOnly = true)
+    public ChallengeActiveResponseDto getActiveChallenge(UUID userId) {
+        return miniChallengesRepository.findInProgressByUserId(userId)
+                .map(c -> {
+                    long target  = c.getTarget() != null ? c.getTarget() : 0L;
+                    long current = c.getCurrentValue() != null ? c.getCurrentValue() : 0L;
+                    int progress = target > 0 ? (int) Math.min(100, current * 100 / target) : 0;
+                    return ChallengeActiveResponseDto.builder()
+                            .challengeId(c.getId())
+                            .title(c.getTitle())
+                            .description(c.getDescription())
+                            .category(c.getCategory())
+                            .challengeSubType(c.getChallengeSubType() != null ? c.getChallengeSubType().name() : null)
+                            .challengeType(c.getChallengeType() != null ? c.getChallengeType().name() : null)
+                            .target(c.getTarget())
+                            .currentValue(current)
+                            .progressPercent(progress)
+                            .estimatedSaving(c.getEstimatedSaving())
+                            .ticker(c.getRewardStockTicker())
+                            .build();
+                })
+                .orElse(null);
     }
 
     // 거래 발생 시 진행 업데이트 (TransactionConsumer에서 호출)
