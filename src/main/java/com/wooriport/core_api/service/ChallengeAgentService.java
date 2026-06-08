@@ -1,6 +1,5 @@
 package com.wooriport.core_api.service;
 
-import com.wooriport.core_api.base.dto.challenge.ChallengeAdjustRequestDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeNagResponseDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeProposalResponseDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeRewardResponseDto;
@@ -44,35 +43,17 @@ public class ChallengeAgentService {
         return callFlask("/mini_challenge", body, ChallengeProposalResponseDto.class);
     }
 
-    @Transactional(readOnly = true)
-    public ChallengeProposalResponseDto adjust(UUID userId, ChallengeAdjustRequestDto request) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("user_id", userId.toString());
-        body.put("category_expense", fetchExpenses(userId));
-        body.put("stock_themes", fetchStockThemes(userId));
-        body.put("previous_proposals", request.getPreviousProposals().stream()
-                .map(p -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("title",            p.getTitle());
-                    m.put("description",      p.getDescription());
-                    m.put("challenge_sub_type", p.getChallengeSubType());
-                    m.put("challenge_type",   p.getChallengeType());
-                    m.put("category",         p.getCategory());
-                    m.put("estimated_saving", p.getEstimatedSaving());
-                    m.put("ticker",           p.getTicker());
-                    m.put("feedback",         p.getFeedback());
-                    return m;
-                })
-                .toList());
+    public ChallengeProposalResponseDto adjust(UUID userId, String feedback) {
+        Map<String, Object> body = Map.of(
+                "user_id",  userId.toString(),
+                "feedback", feedback
+        );
         return callFlask("/mini_challenge/adjust", body, ChallengeProposalResponseDto.class);
     }
 
     public ChallengeRewardResponseDto reward(UUID userId, MiniChallenges challenge) {
         Map<String, Object> body = Map.of(
-                "user_id",          userId.toString(),
-                "challenge_title",  challenge.getTitle(),
-                "estimated_saving", challenge.getEstimatedSaving() != null ? challenge.getEstimatedSaving() : 0L,
-                "ticker",           challenge.getRewardStockTicker()
+                "user_id",          userId.toString()
         );
         return callFlask("/mini_challenge/reward", body, ChallengeRewardResponseDto.class);
     }

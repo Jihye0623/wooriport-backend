@@ -1,6 +1,5 @@
 package com.wooriport.core_api.controller;
 
-import com.wooriport.core_api.base.dto.challenge.ChallengeAdjustRequestDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeCreateRequestDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeProposalResponseDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
@@ -52,10 +51,10 @@ public class ChallengeController {
     @PostMapping("/adjust")
     public ResponseEntity<ResponseDTO<ChallengeProposalResponseDto>> adjust(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody ChallengeAdjustRequestDto request) {
+            @RequestParam String feedback) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResponseDTO.success(201, "챌린지 조정 성공",
-                        challengeAgentService.adjust(userDetails.getUserId(), request)));
+                        challengeAgentService.adjust(userDetails.getUserId(), feedback)));
     }
 }
