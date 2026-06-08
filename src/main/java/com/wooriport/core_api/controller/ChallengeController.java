@@ -1,5 +1,6 @@
 package com.wooriport.core_api.controller;
 
+import com.wooriport.core_api.base.dto.challenge.ChallengeActiveResponseDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeCreateRequestDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeProposalResponseDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
@@ -45,6 +46,16 @@ public class ChallengeController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ResponseDTO.success(201, "챌린지 추천 성공",
                         challengeAgentService.recommend(userDetails.getUserId())));
+    }
+
+    @Operation(summary = "활성 챌린지 조회", description = "진행 중(IN_PROGRESS)인 챌린지를 조회합니다. 없으면 data=null.")
+    @GetMapping("/active")
+    public ResponseEntity<ResponseDTO<ChallengeActiveResponseDto>> active(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        return ResponseEntity.ok(
+                ResponseDTO.success(200, "활성 챌린지 조회 성공",
+                        challengeService.getActiveChallenge(userDetails.getUserId())));
     }
 
     @Operation(summary = "챌린지 난이도/주제 조정", description = "이전 제안에 대한 피드백을 반영해 챌린지를 재생성합니다.")
