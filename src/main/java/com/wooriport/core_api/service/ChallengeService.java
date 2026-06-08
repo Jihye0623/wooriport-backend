@@ -66,7 +66,7 @@ public class ChallengeService {
     // GET /challenges/active — 진행 중(IN_PROGRESS) 챌린지 조회 (없으면 null)
     @Transactional(readOnly = true)
     public ChallengeActiveResponseDto getActiveChallenge(UUID userId) {
-        return miniChallengesRepository.findInProgressByUserId(userId)
+        return miniChallengesRepository.findFirstByUserIdAndStatus(userId, MiniChallenges.ChallengeStatus.IN_PROGRESS)
                 .map(c -> {
                     long target  = c.getTarget() != null ? c.getTarget() : 0L;
                     long current = c.getCurrentValue() != null ? c.getCurrentValue() : 0L;
