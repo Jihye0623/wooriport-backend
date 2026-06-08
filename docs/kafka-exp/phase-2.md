@@ -71,19 +71,35 @@ Phase 1 그대로 per-item best-effort. `batchPersist` 커밋 이후 순차 실�
 
 ---
 
-## 트랙 A — 성능 측정 (측정 후 기입)
+## 트랙 A — 성능 측정 (측정일 2026-06-08)
 
-환경: Ryzen 5 5600X, N=100k, rate=0, max.poll.records=500, 단일 컨슈머.
+환경: Ryzen 5 5600X (6C/12T, 16GB), N=100k, rate=0, max.poll.records=500, 단일 컨슈머.
+방법: `reset-db.ps1` → `mock_payment.py --count 100000 --rate 0` → actuator `tx_consumed_total`
+3초 간격 샘플링 → 정상상태 60s 구간 기울기. **v0/v1 과 동일 하드웨어·동일 방법**(직접 비교 가능).
 
-| 지표 | Baseline (v0) | Phase 1 (v1) | Phase 2 (v2) | v1→v2 변화 |
+| 지표 | Baseline (v0) | Phase 1 (v1) | **Phase 2 (v2)** | v1→v2 변화 |
 |------|--------------|-------------|-------------|-----------|
-| consumer 처리량 (msg/s) | ~301 | ~248 | 측정 필요 | — |
-| tx.persist p50 (ms) | 2.49 | 3.15 | 측정 필요 | — |
-| tx.persist p95 (ms) | 3.01 | 3.67 | 측정 필요 | — |
-| tx.batch.size p50 | — | — | 측정 필요 | — |
-| tx.batch.size p95 | — | — | 측정 필요 | — |
+| consumer 처리량 (msg/s, 60s 정상상태) | ~301 | ~248 | **~1,118** | **+351% (4.5×)** |
+| consumer 처리량 (msg/s, end-to-end 100k) | — | — | **995** | — |
+| tx.persist p50 (메시지당, ms) | 2.49 | 3.15 | **0.094** | **−97%** |
+| tx.persist (poll당 배치, ms) p50/p95 | — | — | 43.5 / 75.0 | — |
+| tx.batch.size (poll당 처리건수) p50/avg/max | — | — | 500 / 485 / 500 | — |
+| 정합성 (적재/유실/중복) | — | — | 100,000 / 0 / 0 | — |
 
-> 측정 완료 후 실수치로 채우고 `RESULTS.md` 에 반영.
+> **persist 메시지당**: v2 의 batchPersist 총 소요 9.37s ÷ 100k = 0.094ms/건.
+> v1 의 단건 persist 3.15ms/건 대비 **약 33× 단축** (IN dedup 1쿼리 + saveAll 배치 INSERT + reWriteBatchedInserts).
+> poll 당 배치는 ~485건을 43.5ms(p50)에 처리.
+
+### 결과 해석 — Phase 1 회귀 회복 + 병목 이동
+
+- **-18% 회귀 회복 완료**: v1(248) → v2(~1,118)로 Phase 1 멱등 도입이 만든 −18% 처리량 하락을
+  회복하고도 v0(301) 대비 **약 3.7×** 초과 달성. 정합성(멱등·재처리·재계산)은 트랙 B 그대로 유지.
+- **병목이 DB 적재 → per-item 후속처리로 이동**: persist 는 배치로 사실상 제거(100k 전체 9.37s).
+  남은 시간은 메시지당 급여 후속처리(`tx_salary` 10만 회) + 챌린지(`tx_challenge` 24,829 회)가 차지.
+  후속처리는 userId 그룹 병렬이지만 카프카테스트 유저가 3명이라 **실질 3-way 병렬**이 상한.
+  → **Phase 3 1순위 타깃**: 후속처리 병렬도(파티션·concurrency↑) 또는 급여/챌린지 자체 배치화.
+- **꼬리 구간 감속**(t≈67 이후 ~1,100→~780 msg/s): transactions 0→100k 적재되며
+  dedup IN 쿼리·급여조회 비용 증가. end-to-end(995)가 정상상태(1,118)보다 낮은 이유.
 
 ---
 

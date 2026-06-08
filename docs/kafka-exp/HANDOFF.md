@@ -15,7 +15,7 @@
 ### 저장소·브랜치·태그 맵 (3개 저장소, 각자 별도 git)
 | 저장소 | 경로 | Phase 1 브랜치 | 태그 |
 |--------|------|----------------|------|
-| backend | `c:\it\backend` | `exp/kafka-1-resilience` | `kafka-exp-v0`(baseline), `kafka-exp-v1`(정합성) |
+| backend | `c:\it\backend` | `exp/kafka-2-batch` | `kafka-exp-v0`(baseline), `kafka-exp-v1`(정합성), `kafka-exp-v2`(배치) |
 | mock-server | `c:\it\mock-server` | `exp/kafka-baseline` | `kafka-exp-v0` |
 | infra | `c:\it\infra` | `exp/kafka-baseline` | `kafka-exp-v0` |
 
@@ -26,19 +26,21 @@
 
 ## 2. 결과 요약 (측정 머신: AMD Ryzen 5 5600X 6C/12T, RAM 16GB, Win11, 단일 컨슈머)
 
-| 지표 | v0 baseline | v1 resilience | 변화 |
-|------|-------------|---------------|------|
-| consumer 처리량(정상상태) | ~301 msg/s | ~248 msg/s | **−18%** |
-| tx.persist p50 | 2.49 ms | 3.15 ms | +0.66 ms |
-| producer 발행 | 100k / 1.48s | 100k / 1.55s | ~동일(병목 아님) |
-| 중복 적재 | 발생(약점) | **0** (멱등) | ✅ |
-| 급여 유실 | 가능(약점) | **0** (재처리+DLT) | ✅ |
-| 챌린지 오차 | 가능(약점) | 자가복구(재계산) | ✅ |
+| 지표 | v0 baseline | v1 resilience | v2 batch | v1→v2 |
+|------|-------------|---------------|----------|-------|
+| consumer 처리량(정상상태) | ~301 msg/s | ~248 msg/s | **~1,118 msg/s** | **+351% (4.5×)** |
+| tx.persist p50 (메시지당) | 2.49 ms | 3.15 ms | **0.094 ms** | **−97%** |
+| producer 발행 | 100k / 1.48s | 100k / 1.55s | 100k / 1.56s | ~동일(병목 아님) |
+| 중복 적재 | 발생(약점) | **0** (멱등) | **0** (배치 2단 dedup) | ✅ 유지 |
+| 급여 유실 | 가능(약점) | **0** (재처리+DLT) | **0** (경로 동일) | ✅ 유지 |
+| 챌린지 오차 | 가능(약점) | 자가복구(재계산) | 자가복구(경로 동일) | ✅ 유지 |
 
-> **핵심 서사**: producer 빠름(67k/s) ↔ **consumer 가 병목**(단일 스레드·메시지당 DB 왕복).
-> Phase 1 은 멱등 적재(`existsByEventId` SELECT + `saveAndFlush`)로 정합성을 얻고 처리량 −18% 를 내줌 = **의도된 트레이드오프**.
-> Phase 2 의 목표 = 배치 적재로 이 −18% 회복(+초과).
-> ⚠️ **숫자(301/248)는 이 머신 전용**. 하드웨어 바뀌면 §4 참고.
+> **핵심 서사**: producer 빠름(64k/s) ↔ v0/v1 은 **consumer 가 병목**(단일 스레드·메시지당 DB 왕복).
+> Phase 1 은 멱등 적재로 정합성을 얻고 처리량 −18% 를 내줌(의도된 트레이드오프).
+> **Phase 2 는 `@KafkaListener(batch=true)` + IN dedup 1쿼리 + saveAll 배치 INSERT 로 −18% 회복 + v0 대비 ~3.7× 초과.**
+> 정합성(멱등·재처리·재계산)은 트랙 B 그대로 통과. 측정일 2026-06-08, 상세 phase-2.md.
+> **병목 이동**: persist 는 배치로 제거됨(100k 전체 9.37s) → 이제 per-item 급여/챌린지 후속처리가 한계(Phase 3 타깃).
+> ⚠️ **절대값(301/248/1,118)은 이 머신 전용**. 하드웨어 바뀌면 §4 참고.
 
 ---
 
