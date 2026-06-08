@@ -3,14 +3,14 @@ spring:
     name: wooriport
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   profiles:
     include: secret
 
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/wooriport
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wooriport}
 
   jpa:
     hibernate:
@@ -58,4 +58,4 @@ management:
       application: ${spring.application.name}
 
 flask:
-  ml-url: http://localhost:8000
+  ml-url: ${FLASK_ML_URL:http://localhost:8000}
