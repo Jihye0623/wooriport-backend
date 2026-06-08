@@ -155,6 +155,11 @@ public class ChallengeService {
         });
     }
 
+    // Phase 2: TX 없이 Redis만 체크 — updateProgress 의 REQUIRES_NEW 오버헤드를 챌린지 없는 유저에서 회피
+    public boolean hasActiveChallenge(UUID userId) {
+        return challengeRedisService.exists(userId);
+    }
+
     /**
      * Phase 1 (2-2): 증분 업데이트(updateProgress)가 실패했을 때, 증분 replay 대신
      * DB(거래 = 진실의 원천)에서 다시 읽어 currentValue 를 재계산하고 Redis/DB 를 보정한다.

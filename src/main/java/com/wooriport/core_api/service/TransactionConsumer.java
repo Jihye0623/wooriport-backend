@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Phase 2: @KafkaListener(batch=true) — poll 단위 배치 처리.
@@ -100,18 +101,25 @@ public class TransactionConsumer {
                     kv("count",      result.duplicates()));
         }
 
-        // 3. 후속처리: 챌린지/급여는 per-item best-effort (Phase 1 과 동일)
-        for (PersistedTransaction tx : result.persisted()) {
-            log.info("kafka_consumed",
-                    kv("event_type", "kafka_consumed"),
-                    kv("topic",      "transaction-events"),
-                    kv("user_id",    tx.userId().toString()));
-            processChallenge(tx);
-            processSalary(tx);
-        }
+        // 3. 후속처리: userId 기준으로 그룹핑 후 병렬 실행 (Phase 2: 3 유저 → 3 병렬 스트림)
+        //    같은 userId 내에서는 직렬 유지(Redis increment 순서 보장), 다른 userId끼리는 병렬
+        result.persisted().stream()
+                .collect(Collectors.groupingBy(PersistedTransaction::userId))
+                .values()
+                .parallelStream()
+                .forEach(txList -> txList.forEach(tx -> {
+                    log.info("kafka_consumed",
+                            kv("event_type", "kafka_consumed"),
+                            kv("topic",      "transaction-events"),
+                            kv("user_id",    tx.userId().toString()));
+                    processChallenge(tx);
+                    processSalary(tx);
+                }));
     }
 
     private void processChallenge(PersistedTransaction tx) {
+        // Phase 2: TX-free 사전 체크 — 챌린지 없는 유저는 REQUIRES_NEW TX 오버헤드 없이 즉시 리턴
+        if (!challengeService.hasActiveChallenge(tx.userId())) return;
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
             challengeService.updateProgress(tx.userId(), tx.category(),
