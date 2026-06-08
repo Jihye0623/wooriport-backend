@@ -107,12 +107,12 @@ public class ChallengeService {
         miniChallengesRepository.findById(UUID.fromString(challengeId)).ifPresent(challenge -> {
             try {
                 String nagMessage = challengeAgentService.nag(userId, challenge, threshold).getNagMessage();
-                notificationService.saveAndSend(
-                        userId,
-                        Notifications.NotificationType.CHALLENGE_NAG,
-                        "챌린지 " + threshold + "% 소비!",
-                        nagMessage
-                );
+                Notifications.NotificationType nagType = switch (threshold) {
+                    case 50 -> Notifications.NotificationType.NAG_50;
+                    case 80 -> Notifications.NotificationType.NAG_80;
+                    default -> Notifications.NotificationType.NAG_90;
+                };
+                notificationService.saveAndSend(userId, nagType, "챌린지 " + threshold + "% 소비!", nagMessage);
             } catch (Exception e) {
                 log.warn("[Challenge] nag 알림 실패 — userId: {}, threshold: {}%, 사유: {}", userId, threshold, e.getMessage());
             }

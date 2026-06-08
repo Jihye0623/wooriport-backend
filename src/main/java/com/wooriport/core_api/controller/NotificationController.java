@@ -1,5 +1,6 @@
 package com.wooriport.core_api.controller;
 
+import com.wooriport.core_api.base.dto.Notification.NagNotificationResponseDto;
 import com.wooriport.core_api.base.dto.Notification.NotificationDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.config.security.CustomUserDetails;
@@ -59,6 +60,17 @@ public class NotificationController {
 
         notificationService.readAllNotifications(userDetails.getId());
         return ResponseEntity.ok(ResponseDTO.success(200, "전체 알림 읽음 처리 성공", null));
+    }
+
+    @Operation(summary = "잔소리 알림 상세 조회",
+            description = "NAG_50/NAG_80/NAG_90 알림 1건에 대해 챌린지 제목, 주식 이름, 살 수 있는 주 수, 메시지를 반환합니다.")
+    @GetMapping("/nag/{id}")
+    public ResponseEntity<ResponseDTO<NagNotificationResponseDto>> getNagNotification(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        NagNotificationResponseDto response = notificationService.getNagNotification(userDetails.getUserId(), id);
+        return ResponseEntity.ok(ResponseDTO.success(200, "잔소리 알림 조회 성공", response));
     }
 
 }
