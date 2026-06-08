@@ -57,7 +57,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             PortfolioNotSetException.class,
             PortiNotSetException.class,
-            SalaryNotFoundException.class
+            SalaryNotFoundException.class,
+            AssetDeletionNotAllowedException.class
     })
     public ResponseEntity<?> handleBusinessRule(RuntimeException e) {
         log.warn("[409] 비즈니스 규칙 위반: {}", e.getMessage());

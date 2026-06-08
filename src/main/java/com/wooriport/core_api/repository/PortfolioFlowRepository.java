@@ -52,4 +52,7 @@ public interface PortfolioFlowRepository extends JpaRepository<PortfolioFlows, U
         WHERE f.user.id = :userId
         """)
     List<PortfolioFlows> findAllByUserIdWithDetails(@Param("userId") UUID userId);
+
+    // 자산 삭제 가능 여부 판단: 흐름의 '모을 통장'으로 사용 중인지 확인
+    boolean existsByGatheringAssetId(UUID gatheringAssetId);
 }

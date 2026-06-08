@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -45,6 +46,7 @@ public class DashboardService {
     private final EventRepository eventRepository;
     private final TransactionRepository transactionRepository;
     private final ProductCategoryRateRepository productCategoryRateRepository;
+    private final TaxBenefitService taxBenefitService;
 
     // assets.assetType → 현금성 / 투자자산 분류
     private static final Set<Assets.AccountType> CASH_TYPES = Set.of(
@@ -74,6 +76,15 @@ public class DashboardService {
         List<Object[]> categoryRows = transactionRepository.sumExpenseGroupByCategory(userId, year, month);
         List<Transactions> monthlyExpenses = transactionRepository.findMonthlyExpenses(userId, year, month);
 
+        // 예산 기준선 = 저번 달 소비총합 (transactions 기반)
+        LocalDate lastMonth = today.minusMonths(1);
+        long lastMonthExpense = transactionRepository.sumExpenseByMonth(
+                userId, lastMonth.getYear(), lastMonth.getMonthValue());
+
+        // 이번 주 요일별 지출 [월~금] — 이번 주 월요일 00:00 ~ 토요일 00:00 거래를 요일로 합산
+        LocalDate weekMonday = today.minusDays(today.getDayOfWeek().getValue() - 1);
+        List<Long> weeklyExpenses = buildWeeklyExpenses(userId, weekMonday);
+
         Map<String, String> rateByLabel = productCategoryRateRepository.findAll().stream()
                 .collect(Collectors.toMap(
                         ProductCategoryRate::getCategoryLabel,
@@ -85,8 +96,9 @@ public class DashboardService {
                 .assetsSummary(buildAssetsSummary(assets))
                 .salaryPlan(buildSalaryPlan(user, portfolios))
                 .events(buildEvents(userId, events, today))
-                .consumption(buildConsumption(month, categoryRows, monthlyExpenses, portfolios))
+                .consumption(buildConsumption(month, categoryRows, monthlyExpenses, lastMonthExpense, weeklyExpenses))
                 .portfolio(buildPortfolio(flowPutItems, rateByLabel))
+                .taxSaving(taxBenefitService.getDashboardTaxSaving(userId))
                 .build();
     }
 
@@ -174,23 +186,36 @@ public class DashboardService {
                 .toList();
     }
 
+    // 이번 주(월~일) 요일별 지출 합계. 인덱스 0=월 … 6=일
+    private List<Long> buildWeeklyExpenses(UUID userId, LocalDate weekMonday) {
+        LocalDateTime start = weekMonday.atStartOfDay();
+        LocalDateTime end = weekMonday.plusDays(7).atStartOfDay().minusNanos(1);   // 일요일 끝 (findExpensesBetween 은 <= to)
+        long[] weekly = new long[7];
+        for (Transactions t : transactionRepository.findExpensesBetween(userId, start, end)) {
+            if (t.getAmount() == null || t.getTransactionAt() == null) continue;
+            int dow = t.getTransactionAt().getDayOfWeek().getValue();   // 월=1 … 일=7
+            weekly[dow - 1] += Math.abs(t.getAmount());
+        }
+        List<Long> result = new ArrayList<>(7);
+        for (long v : weekly) result.add(v);
+        return result;
+    }
+
     private DashboardResponseDto.Consumption buildConsumption(
             int month,
             List<Object[]> categoryRows,
             List<Transactions> monthlyExpenses,
-            List<Portfolios> portfolios) {
+            long lastMonthExpense,
+            List<Long> weeklyExpenses) {
 
         long totalExpense = categoryRows.stream()
                 .mapToLong(row -> ((Number) row[1]).longValue())
                 .sum();
 
-        long totalBudget = portfolios.stream()
-                .mapToLong(p -> p.getAssetAmount() == null ? 0L : p.getAssetAmount())
-                .sum();
-
-        boolean isBudgetExceeded = totalBudget > 0 && totalExpense > totalBudget;
-        int budgetExceedRate = (totalBudget > 0 && isBudgetExceeded)
-                ? (int) Math.round(((totalExpense - totalBudget) * 100.0) / totalBudget)
+        // 예산 기준 = 저번 달 소비총합. 저번 달 데이터가 없으면 초과 판정하지 않음.
+        boolean isBudgetExceeded = lastMonthExpense > 0 && totalExpense > lastMonthExpense;
+        int budgetExceedRate = isBudgetExceeded
+                ? (int) Math.round(((totalExpense - lastMonthExpense) * 100.0) / lastMonthExpense)
                 : 0;
 
         // 카테고리별 [총 거래건수, top 가맹점]
@@ -217,8 +242,10 @@ public class DashboardService {
         return DashboardResponseDto.Consumption.builder()
                 .referenceMonth(month)
                 .totalExpense(totalExpense)
+                .lastMonthExpense(lastMonthExpense)
                 .isBudgetExceeded(isBudgetExceeded)
                 .budgetExceedRate(budgetExceedRate)
+                .weeklyExpenses(weeklyExpenses)
                 .categories(categories)
                 .build();
     }
