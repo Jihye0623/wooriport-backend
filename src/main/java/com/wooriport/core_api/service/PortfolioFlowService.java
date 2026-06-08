@@ -1,5 +1,6 @@
 package com.wooriport.core_api.service;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
 import com.wooriport.core_api.base.dto.portfolioFlow.AvailableAssetListResponseDto;
 import com.wooriport.core_api.base.dto.portfolioFlow.PortfolioFlowListResponseDto;
 import com.wooriport.core_api.base.dto.portfolioFlow.PortfolioFlowListResponseDto.FlowDto;
@@ -26,8 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -42,6 +46,10 @@ public class PortfolioFlowService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
 
+    // 상품 매수가 가능한 모으기 통장 유형 (프론트 INVESTABLE_HUB_TYPES 와 동일 기준)
+    // 그 외(예적금·비상금 등)는 화면에서 상품을 비우므로 AI 추천 비교 대상에서 제외 가능
+    private static final Set<String> INVESTABLE_HUB_TYPES = Set.of("STOCK", "ISA", "IRP", "PENSION_SAVINGS");
+
     // PATCH /portfolio-flows/{flowId}
     // gathering + 상품(PUT) 교체. amount/추천통장정보/AI 코멘트는 보존
     @Transactional
@@ -53,6 +61,16 @@ public class PortfolioFlowService {
                 .orElseThrow(() -> new IllegalArgumentException("흐름을 찾을 수 없습니다: " + flowId));
         if (!flow.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("해당 흐름에 대한 권한이 없습니다.");
+        }
+
+        // Row3 분석: 첫 "관리 시작하기"에서만 AI 선제시 vs 사용자 최종 선택을 비교해 로깅
+        // (분석용이므로 실패해도 저장 흐름은 절대 막지 않음)
+        if (flow.getStartedAt() == null) {
+            try {
+                logPortfolioDecision(userId, flow, request);
+            } catch (Exception e) {
+                log.warn("portfolio_decision 로깅 실패 (무시) — flowId={}", flowId, e);
+            }
         }
 
         // 2. amount — 보내준 경우에만 갱신 (없으면 AI 설정값 유지)
@@ -132,6 +150,123 @@ public class PortfolioFlowService {
                 .orElseThrow(() -> new IllegalStateException("갱신된 흐름 조회 실패: " + flowId));
 
         return toFlowDto(refreshed);
+    }
+
+    // AI 처방(선제시) vs 사용자 최종 선택 비교 이벤트 (Row3 ELK 분석용)
+    // 호출 시점: 첫 "관리 시작하기" — flow.getItems()=AI 원본, request=사용자 최종
+    private void logPortfolioDecision(UUID userId, PortfolioFlows flow,
+                                      PortfolioFlowUpdateRequestDto request) {
+        // AI 선제시: productId → ratio
+        Map<UUID, Integer> aiByProduct = flow.getItems().stream()
+                .filter(PortfolioFlowItems::isPut)
+                .filter(i -> i.getProduct() != null)
+                .collect(Collectors.toMap(
+                        i -> i.getProduct().getId(),
+                        i -> i.getProductRatio() != null ? i.getProductRatio() : 0,
+                        (a, b) -> a));
+
+        // 사용자 최종: productId → ratio
+        Map<UUID, Integer> finalByProduct = new HashMap<>();
+        if (request.getProducts() != null) {
+            for (PortfolioFlowUpdateRequestDto.ProductItem p : request.getProducts()) {
+                if (p.getProductId() != null) {
+                    finalByProduct.merge(p.getProductId(),
+                            p.getProductRatio() != null ? p.getProductRatio() : 0,
+                            Integer::sum);
+                }
+            }
+        }
+
+        // 상품명 매핑 (읽기 좋은 라벨용) — 한 번만 조회
+        Set<UUID> allIds = new HashSet<>();
+        allIds.addAll(aiByProduct.keySet());
+        allIds.addAll(finalByProduct.keySet());
+        Map<UUID, String> nameById = productRepository.findAllById(allIds).stream()
+                .collect(Collectors.toMap(Products::getId, Products::getName, (a, b) -> a));
+
+        List<String> kept = new ArrayList<>();
+        List<String> removed = new ArrayList<>();
+        List<String> added = new ArrayList<>();
+        List<String> ratioChanged = new ArrayList<>();
+        List<Map<String, Object>> items = new ArrayList<>();
+        List<String> productStatus = new ArrayList<>();  // "상품명|상태" — 토네이도 단일 소스용
+
+        for (UUID id : allIds) {
+            Integer ai = aiByProduct.get(id);
+            Integer fin = finalByProduct.get(id);
+            String name = nameById.getOrDefault(id, id.toString());
+            String status;
+            if (ai != null && fin == null) {
+                status = "removed"; removed.add(name);
+            } else if (ai == null) {
+                status = "added"; added.add(name);
+            } else if (!ai.equals(fin)) {
+                status = "ratio_changed"; ratioChanged.add(name);
+            } else {
+                status = "kept"; kept.add(name);
+            }
+            Map<String, Object> item = new HashMap<>();
+            item.put("product", name);
+            item.put("ai_ratio", ai);
+            item.put("final_ratio", fin);
+            item.put("status", status);
+            items.add(item);
+            productStatus.add(name + "|" + status);
+        }
+
+        int aiCount = aiByProduct.size();
+        double acceptanceRate = aiCount == 0 ? 1.0 : (double) kept.size() / aiCount;
+
+        // 모으기 통장 비교
+        String aiGathering = flow.getGatheringAsset() != null
+                ? flow.getGatheringAsset().getAssetNumber()
+                : flow.getGatheringName();
+        boolean gatheringChanged = request.getGatheringAssetId() != null
+                && (flow.getGatheringAsset() == null
+                    || !request.getGatheringAssetId().equals(flow.getGatheringAsset().getId()));
+
+        // 투자 가능 통장 여부 — 비투자(예적금/비상금) flow는 화면에서 상품을 비우므로
+        // 상품 비교가 무의미. 대시보드에서 investable:true 로 걸러서 본다.
+        String gatheringType = flow.getGatheringAsset() != null
+                ? (flow.getGatheringAsset().getAssetType() != null
+                        ? flow.getGatheringAsset().getAssetType().name() : null)
+                : flow.getGatheringType();
+        boolean investable = gatheringType != null && INVESTABLE_HUB_TYPES.contains(gatheringType);
+
+        // AI 추천 → 유저 대체 쌍 ("삭제상품 → 추가상품"). 삭제·추가가 모두 있을 때만 기록
+        String substitution = (!removed.isEmpty() && !added.isEmpty())
+                ? String.join(", ", removed) + " → " + String.join(", ", added)
+                : null;
+
+        List<String> aiProducts = aiByProduct.keySet().stream()
+                .map(id -> nameById.getOrDefault(id, id.toString())).collect(Collectors.toList());
+        List<String> finalProducts = finalByProduct.keySet().stream()
+                .map(id -> nameById.getOrDefault(id, id.toString())).collect(Collectors.toList());
+
+        log.info("portfolio_decision",
+                kv("event_type", "portfolio_decision"),
+                kv("user_id", userId.toString()),
+                kv("flow_id", flow.getId().toString()),
+                kv("flow_title", flow.getTitle()),
+                kv("ai_products", aiProducts),
+                kv("final_products", finalProducts),
+                kv("kept_products", kept),
+                kv("removed_products", removed),
+                kv("added_products", added),
+                kv("ratio_changed_products", ratioChanged),
+                kv("ai_count", aiCount),
+                kv("final_count", finalByProduct.size()),
+                kv("kept_count", kept.size()),
+                kv("removed_count", removed.size()),
+                kv("added_count", added.size()),
+                kv("ratio_changed_count", ratioChanged.size()),
+                kv("acceptance_rate", acceptanceRate),
+                kv("ai_gathering", aiGathering),
+                kv("gathering_changed", gatheringChanged),
+                kv("investable", investable),
+                kv("product_status", productStatus),
+                kv("substitution", substitution),
+                kv("items", items));
     }
 
     // 추천 통장(gathering_*) 정보로 assets 에 실제 계좌를 개설 (개설 시점 잔액 0)
