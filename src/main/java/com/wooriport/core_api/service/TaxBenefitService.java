@@ -1,5 +1,6 @@
 package com.wooriport.core_api.service;
 
+import com.wooriport.core_api.base.dto.dashboard.DashboardResponseDto;
 import com.wooriport.core_api.base.dto.tax.TaxBenefitResponseDto;
 import com.wooriport.core_api.base.dto.tax.TaxBenefitResponseDto.AccountBenefit;
 import com.wooriport.core_api.base.dto.tax.TaxBenefitResponseDto.PensionSummary;
@@ -68,6 +69,52 @@ public class TaxBenefitService {
         return TaxBenefitResponseDto.builder()
                 .accounts(items)
                 .pensionSummary(summary)
+                .build();
+    }
+
+    /**
+     * 메인 대시보드 절세 위젯용 요약. /tax-benefits 와 동일한 합산 한도·공제율 정책을 재사용한다.
+     * (연금저축 600만 단독 한도, 연금저축+IRP 900만 합산 한도)
+     */
+    @Transactional(readOnly = true)
+    public DashboardResponseDto.TaxSaving getDashboardTaxSaving(UUID userId) {
+        Users user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+        List<Assets> accounts = assetRepository.findTaxBenefitAccounts(userId);
+
+        Long salary = user.getSalary();
+        double rate = TaxBenefitPolicy.deductionRate(salary == null ? null : salary * 12);
+
+        long pensionContribution = sumBalance(accounts, AccountType.PENSION_SAVINGS);
+        long irpContribution = sumBalance(accounts, AccountType.IRP);
+
+        long pensionDeductible = Math.min(pensionContribution, TaxBenefitPolicy.PENSION_DEDUCTION_LIMIT);
+        long irpDeductible = Math.max(0,
+                Math.min(irpContribution, TaxBenefitPolicy.PENSION_IRP_COMBINED_LIMIT - pensionDeductible));
+
+        long deductibleAmount = pensionDeductible + irpDeductible;
+        long totalTaxDeduction = Math.round(deductibleAmount * rate);
+        long remaining = Math.max(0,
+                TaxBenefitPolicy.PENSION_IRP_COMBINED_LIMIT - (pensionContribution + irpContribution));
+
+        List<DashboardResponseDto.TaxSavingBar> bars = List.of(
+                DashboardResponseDto.TaxSavingBar.builder()
+                        .label("IRP")
+                        .contribution(irpContribution)
+                        .deductible(irpDeductible)
+                        .limit(TaxBenefitPolicy.PENSION_IRP_COMBINED_LIMIT)
+                        .build(),
+                DashboardResponseDto.TaxSavingBar.builder()
+                        .label("연금저축")
+                        .contribution(pensionContribution)
+                        .deductible(pensionDeductible)
+                        .limit(TaxBenefitPolicy.PENSION_DEDUCTION_LIMIT)
+                        .build());
+
+        return DashboardResponseDto.TaxSaving.builder()
+                .deductionRate(rate * 100)
+                .totalTaxDeduction(totalTaxDeduction)
+                .remaining(remaining)
+                .bars(bars)
                 .build();
     }
 

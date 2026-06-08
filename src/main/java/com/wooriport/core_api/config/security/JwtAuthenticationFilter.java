@@ -46,6 +46,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+        // SSE(EventSource)는 커스텀 헤더를 못 보내므로 구독 요청에 한해 쿼리파라미터 token 허용
+        if (request.getRequestURI().endsWith("/notifications/subscribe")) {
+            String queryToken = request.getParameter("token");
+            if (StringUtils.hasText(queryToken)) {
+                return queryToken;
+            }
+        }
         return null;
     }
 }
