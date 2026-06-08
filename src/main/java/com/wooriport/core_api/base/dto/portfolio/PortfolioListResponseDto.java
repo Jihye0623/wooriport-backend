@@ -18,6 +18,8 @@ public class PortfolioListResponseDto {
     @Builder
     public static class PortfolioItem {
         private UUID id;
+        private UUID assetId;
+        private String assetType;
         private Long assetAmount;
         private Boolean isLinked;
         private String institution;
