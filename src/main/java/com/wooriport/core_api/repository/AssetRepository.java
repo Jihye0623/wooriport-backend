@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,6 +56,15 @@ public interface AssetRepository extends JpaRepository<Assets, UUID> {
           AND a.deletedAt IS NULL
         """)
     Optional<Assets> findByAssetNumber(@Param("assetNumber") String assetNumber);
+
+    // Phase 2 배치 적재용: poll 안의 모든 asset_number 를 1쿼리로 조회 (N+1 제거)
+    @Query("""
+        SELECT a FROM Assets a
+        JOIN FETCH a.user
+        WHERE a.assetNumber IN :assetNumbers
+          AND a.deletedAt IS NULL
+        """)
+    List<Assets> findByAssetNumberIn(@Param("assetNumbers") Collection<String> assetNumbers);
 
     // 기존에 findByUserIdAndIsSalaryTrue() 있으면 아래 것도 추가
     Optional<Assets> findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(UUID userId);

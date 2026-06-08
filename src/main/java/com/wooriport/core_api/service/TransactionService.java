@@ -1,6 +1,7 @@
 package com.wooriport.core_api.service;
 
 
+import com.wooriport.core_api.base.dto.transaction.BatchPersistResult;
 import com.wooriport.core_api.base.dto.transaction.PersistedTransaction;
 import com.wooriport.core_api.base.dto.transaction.SalaryTransactionListResponseDto;
 import com.wooriport.core_api.base.dto.transaction.TransactionEventDto;
@@ -16,8 +17,15 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -83,6 +91,91 @@ public class TransactionService {
                 event.getTransactionAt(),
                 Math.abs(event.getAmount()),
                 event.getAmount() > 0);
+    }
+
+    /**
+     * Phase 2: poll 단위 배치 적재.
+     * 단건 persist() 의 "메시지당 SELECT + saveAndFlush" 를 제거하고
+     * ① intra-batch dedup → ② DB dedup 1쿼리 → ③ asset 일괄조회 1쿼리 → ④ saveAll(Hibernate 배치 INSERT) 로 교체.
+     * poll 전체가 단일 트랜잭션: 실패 시 Kafka 오프셋 미커밋 → 재시도 → dedup 이 정합성 보장.
+     */
+    @Transactional
+    public BatchPersistResult batchPersist(List<TransactionEventDto> events) {
+        if (events.isEmpty()) return new BatchPersistResult(List.of(), 0);
+
+        // ① intra-batch dedup: poll 안에서 같은 event_id 가 중복으로 온 경우 (첫 번째만 통과)
+        Map<String, TransactionEventDto> seenMap = new LinkedHashMap<>();
+        List<TransactionEventDto> nullIdEvents = new ArrayList<>();
+        int batchDups = 0;
+        for (TransactionEventDto e : events) {
+            if (e.getEventId() == null) {
+                nullIdEvents.add(e); // event_id 없으면 dedup 불가 → 그대로 통과
+            } else if (seenMap.putIfAbsent(e.getEventId(), e) != null) {
+                batchDups++;
+            }
+        }
+
+        // ② DB dedup: 이미 적재된 event_id 를 1쿼리로 필터 (이전 poll 에서 처리된 것)
+        Set<String> existingIds = seenMap.isEmpty()
+                ? Set.of()
+                : transactionRepository.findExistingEventIds(seenMap.keySet());
+        List<TransactionEventDto> newEvents = new ArrayList<>(nullIdEvents);
+        int dbDups = 0;
+        for (Map.Entry<String, TransactionEventDto> entry : seenMap.entrySet()) {
+            if (existingIds.contains(entry.getKey())) dbDups++;
+            else newEvents.add(entry.getValue());
+        }
+        int totalDups = batchDups + dbDups;
+
+        if (newEvents.isEmpty()) return new BatchPersistResult(List.of(), totalDups);
+
+        // ③ asset 일괄조회: N+1 없이 1쿼리 (JOIN FETCH user 포함)
+        Set<String> assetNumbers = newEvents.stream()
+                .map(TransactionEventDto::getAssetNumber)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<String, Assets> assetMap = assetRepository.findByAssetNumberIn(assetNumbers)
+                .stream()
+                .collect(Collectors.toMap(Assets::getAssetNumber, a -> a));
+
+        // ④ 엔티티 빌드 + saveAll (Hibernate 가 jdbc.batch_size 단위로 배치 INSERT)
+        List<Transactions> toSave = new ArrayList<>();
+        List<PersistedTransaction> results = new ArrayList<>();
+        for (TransactionEventDto event : newEvents) {
+            Assets asset = assetMap.get(event.getAssetNumber());
+            if (asset == null) {
+                log.warn("매칭되는 asset_number 없음 — 스킵: {}", event.getAssetNumber());
+                continue;
+            }
+            Users user = asset.getUser();
+            long amount = -Math.abs(event.getAmount());
+
+            toSave.add(Transactions.builder()
+                    .eventId(event.getEventId())
+                    .user(user)
+                    .asset(asset)
+                    .amount(amount)
+                    .category(event.getCategory())
+                    .senderName(event.getSenderName())
+                    .transactionAt(event.getTransactionAt())
+                    .build());
+
+            results.add(new PersistedTransaction(
+                    user.getId(),
+                    asset.getId(),
+                    user.getAutoTransferToAssetId(),
+                    event.getCategory(),
+                    event.getSenderName(),
+                    event.getTransactionAt(),
+                    Math.abs(event.getAmount()),
+                    event.getAmount() > 0));
+        }
+
+        transactionRepository.saveAll(toSave);
+
+        log.info("배치 적재 완료 — poll={}, 신규={}, 중복(배치내={}, DB={})",
+                events.size(), results.size(), batchDups, dbDups);
+        return new BatchPersistResult(results, totalDups);
     }
 
     @Transactional(readOnly = true)

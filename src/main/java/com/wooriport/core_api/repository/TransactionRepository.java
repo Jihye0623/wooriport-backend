@@ -6,14 +6,20 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transactions, UUID> {
 
     // 멱등 적재용: 이미 처리한 event_id 인지 확인
     boolean existsByEventId(String eventId);
+
+    // Phase 2 배치 dedup: poll 단위로 이미 적재된 event_id 를 1쿼리로 조회
+    @Query("SELECT t.eventId FROM Transactions t WHERE t.eventId IN :eventIds")
+    Set<String> findExistingEventIds(@Param("eventIds") Collection<String> eventIds);
 
     // ──────────────────────────────────────
     // 이상 소비 감지용

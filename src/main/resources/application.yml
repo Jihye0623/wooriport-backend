@@ -10,7 +10,8 @@ spring:
 
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/wooriport
+    # reWriteBatchedInserts=true: 다중 단건 INSERT → 멀티로우 INSERT 재작성 (PostgreSQL JDBC 최적화)
+    url: jdbc:postgresql://localhost:5432/wooriport?reWriteBatchedInserts=true
 
   jpa:
     hibernate:
@@ -19,6 +20,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        # Phase 2: saveAll 배치 INSERT 활성화 (100건씩 묶어서 전송)
+        jdbc:
+          batch_size: 100
+        order_inserts: true
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -27,6 +32,8 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Phase 2: 배치 poll 크기 튜닝 (SalaryRetryConsumer 는 단건 처리라 영향 없음)
+      max-poll-records: 500
     # Phase 1: 급여 재처리 토픽 발행용 프로듀서 (JSON 문자열)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -67,6 +74,8 @@ management:
         tx.persist: 0.5, 0.95, 0.99
         tx.challenge: 0.5, 0.95, 0.99
         tx.salary: 0.5, 0.95, 0.99
+        # Phase 2: 배치 크기 분포 (poll 당 처리 건수 p50/p95/p99)
+        tx.batch.size: 0.5, 0.95, 0.99
 
 flask:
   ml-url: http://localhost:8000
