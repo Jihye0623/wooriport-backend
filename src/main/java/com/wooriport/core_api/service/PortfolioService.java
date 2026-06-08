@@ -151,6 +151,8 @@ public class PortfolioService {
         List<PortfolioListResponseDto.PortfolioItem> items = portfolios.stream()
                 .map(p -> PortfolioListResponseDto.PortfolioItem.builder()
                         .id(p.getId())
+                        .assetId(p.isLinked() ? p.getAsset().getId() : null)
+                        .assetType(p.isLinked() ? p.getAsset().getAssetType().name() : null)
                         .assetAmount(p.getAssetAmount())
                         .isLinked(p.isLinked())
                         .institution(p.isLinked() ? p.getAsset().getInstitution() : null)
