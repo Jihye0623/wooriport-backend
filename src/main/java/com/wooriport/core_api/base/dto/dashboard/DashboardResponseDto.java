@@ -3,7 +3,6 @@ package com.wooriport.core_api.base.dto.dashboard;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,7 +13,6 @@ public class DashboardResponseDto {
     private UserInfo user;
     private AssetsSummary assetsSummary;
     private SalaryPlan salaryPlan;
-    private List<EventItem> events;
     private Consumption consumption;
     private List<PortfolioItem> portfolio;
     private TaxSaving taxSaving;
@@ -48,19 +46,6 @@ public class DashboardResponseDto {
     public static class Allocation {
         private String purpose;
         private Long plannedAmount;
-    }
-
-    @Getter
-    @Builder
-    public static class EventItem {
-        private UUID id;
-        private String title;
-        private Long targetAmount;
-        private Long currentAmount;     // = portfolio_flows.gatheringAsset.balance
-        private Integer progressRate;   // 0~100 (%)
-        private LocalDate deadline;
-        private Integer dday;           // 오늘 ~ deadline (일)
-        private String status;
     }
 
     @Getter
