@@ -99,9 +99,11 @@ public class ReportService {
         if (!currSnapshots.isEmpty()) {
             long currLast = currSnapshots.get(currSnapshots.size() - 1).getTotalAmount();
             var prevSnapshot = assetSnapshotsRepository.findLastBefore(userId, from);
-            if (prevSnapshot.isPresent() && prevSnapshot.get().getTotalAmount() > 0) {
+            if (prevSnapshot.isPresent()) {
                 long prevLast = prevSnapshot.get().getTotalAmount();
-                assetChangeRate = Math.round((currLast - prevLast) * 1000.0 / prevLast) / 10.0;
+                if (prevLast > 0) {
+                    assetChangeRate = Math.round((currLast - prevLast) * 1000.0 / prevLast) / 10.0;
+                }
             }
         }
 
@@ -393,7 +395,7 @@ public class ReportService {
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            log.warn("[ReportJob] assetSnapshots 파싱 실패: {}", e.getMessage());
+            log.error("[ReportJob] assetSnapshots 파싱 실패 — 데이터 손상 가능성: {}", e.getMessage());
             return List.of();
         }
     }
@@ -410,7 +412,7 @@ public class ReportService {
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            log.warn("[ReportJob] weeklyExpenses 파싱 실패: {}", e.getMessage());
+            log.error("[ReportJob] weeklyExpenses 파싱 실패 — 데이터 손상 가능성: {}", e.getMessage());
             return List.of();
         }
     }

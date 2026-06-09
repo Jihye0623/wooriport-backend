@@ -17,7 +17,6 @@ public class PortfolioFlowListResponseDto {
     @Builder
     public static class FlowDto {
         private UUID id;
-        private UUID eventId;          // null = 기본 흐름
         private String title;
         private String summary;
         private String term;           // 단기 / 중기 / 장기 등 (AI 원본)

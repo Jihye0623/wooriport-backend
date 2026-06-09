@@ -4,6 +4,7 @@ import com.wooriport.core_api.base.dto.challenge.ChallengeNagResponseDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeProposalResponseDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeRewardResponseDto;
 import com.wooriport.core_api.domain.MiniChallenges;
+import com.wooriport.core_api.base.exception.AiServiceException;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
@@ -109,7 +110,7 @@ public class ChallengeAgentService {
 
         } catch (Exception e) {
             log.error("[ChallengeAgent] FastAPI 호출 실패 — path: {}, 사유: {}", path, e.getMessage());
-            throw new IllegalStateException("AI 서버 호출 실패: " + e.getMessage());
+            throw new AiServiceException("AI 서버 호출 실패: " + e.getMessage());
         }
     }
 }

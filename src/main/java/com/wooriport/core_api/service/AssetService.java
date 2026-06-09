@@ -301,13 +301,14 @@ public class AssetService {
                 .stream()
                 .anyMatch(a -> a.getBankType() == Assets.BankType.WOORI);
 
+        Assets salary = salaryAsset.get();
         return AutoTransferStatusResponseDto.builder()
                 .isConnected(hasWooriAccount)
                 .restrictedFeatures(hasWooriAccount
                         ? List.of()
                         : List.of("AI 기반 급여 자동 분배", "자동 이체 실행"))
-                .fromAssetId(salaryAsset.get().getId())
-                .fromInstitution(salaryAsset.get().getInstitution())
+                .fromAssetId(salary.getId())
+                .fromInstitution(salary.getInstitution())
                 .build();
     }
 

@@ -26,11 +26,6 @@ public class PortfolioFlows extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private Users user;
 
-    // null = 기본 포트폴리오 / 있으면 이벤트 포트폴리오
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id")
-    private Event event;
-
     // 흐름 이름 (예: "흐름 A")
     @Column(name = "title", nullable = false, length = 50)
     private String title;

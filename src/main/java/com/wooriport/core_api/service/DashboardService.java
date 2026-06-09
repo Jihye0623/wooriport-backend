@@ -2,17 +2,13 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.dashboard.DashboardResponseDto;
 import com.wooriport.core_api.domain.Assets;
-import com.wooriport.core_api.domain.Event;
 import com.wooriport.core_api.domain.PortfolioFlowItems;
-import com.wooriport.core_api.domain.PortfolioFlows;
 import com.wooriport.core_api.domain.Portfolios;
 import com.wooriport.core_api.domain.ProductCategoryRate;
 import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
 import com.wooriport.core_api.repository.AssetRepository;
-import com.wooriport.core_api.repository.EventRepository;
 import com.wooriport.core_api.repository.PortfolioFlowItemRepository;
-import com.wooriport.core_api.repository.PortfolioFlowRepository;
 import com.wooriport.core_api.repository.PortfolioRepository;
 import com.wooriport.core_api.repository.ProductCategoryRateRepository;
 import com.wooriport.core_api.repository.TransactionRepository;
@@ -24,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,9 +36,7 @@ public class DashboardService {
     private final UserRepository userRepository;
     private final AssetRepository assetRepository;
     private final PortfolioRepository portfolioRepository;
-    private final PortfolioFlowRepository portfolioFlowRepository;
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
-    private final EventRepository eventRepository;
     private final TransactionRepository transactionRepository;
     private final ProductCategoryRateRepository productCategoryRateRepository;
     private final TaxBenefitService taxBenefitService;
@@ -54,11 +47,13 @@ public class DashboardService {
             Assets.AccountType.PARKING,
             Assets.AccountType.SAVINGS,
             Assets.AccountType.DEPOSIT,
-            Assets.AccountType.CMA);
+            Assets.AccountType.CMA,
+            Assets.AccountType.HOUSING_SUBSCRIPTION);
     private static final Set<Assets.AccountType> INVESTMENT_TYPES = Set.of(
             Assets.AccountType.STOCK,
             Assets.AccountType.IRP,
-            Assets.AccountType.ISA);
+            Assets.AccountType.ISA,
+            Assets.AccountType.PENSION_SAVINGS);
 
     @Transactional(readOnly = true)
     public DashboardResponseDto getDashboard(UUID userId) {
@@ -68,7 +63,6 @@ public class DashboardService {
         List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
         List<Portfolios> portfolios = portfolioRepository.findByUserId(userId);
         List<PortfolioFlowItems> flowPutItems = portfolioFlowItemRepository.findAllPutByUserIdWithAsset(userId);
-        List<Event> events = eventRepository.findActiveDashboardEvents(userId);
 
         LocalDate today = LocalDate.now();
         int year = today.getYear();
@@ -95,7 +89,6 @@ public class DashboardService {
                 .user(buildUser(user))
                 .assetsSummary(buildAssetsSummary(assets))
                 .salaryPlan(buildSalaryPlan(user, portfolios))
-                .events(buildEvents(userId, events, today))
                 .consumption(buildConsumption(month, categoryRows, monthlyExpenses, lastMonthExpense, weeklyExpenses))
                 .portfolio(buildPortfolio(flowPutItems, rateByLabel))
                 .taxSaving(taxBenefitService.getDashboardTaxSaving(userId))
@@ -155,35 +148,6 @@ public class DashboardService {
                 .surplus(surplus)
                 .allocations(allocations)
                 .build();
-    }
-
-    // currentAmount = portfolio_flows.gatheringAsset.balance, progressRate = current / target * 100
-    private List<DashboardResponseDto.EventItem> buildEvents(UUID userId, List<Event> events, LocalDate today) {
-        return events.stream()
-                .map(e -> {
-                    Long current = portfolioFlowRepository.findByUserIdAndEventId(userId, e.getId())
-                            .map(PortfolioFlows::getGatheringAsset)
-                            .map(a -> a == null ? 0L : (a.getBalance() == null ? 0L : a.getBalance()))
-                            .orElse(0L);
-                    Long target = e.getTargetAmount();
-                    int progress = (target != null && target > 0)
-                            ? (int) Math.min(100, Math.round(current * 100.0 / target))
-                            : 0;
-                    int dday = e.getDeadline() == null
-                            ? 0
-                            : (int) ChronoUnit.DAYS.between(today, e.getDeadline());
-                    return DashboardResponseDto.EventItem.builder()
-                            .id(e.getId())
-                            .title(e.getTitle())
-                            .targetAmount(target)
-                            .currentAmount(current)
-                            .progressRate(progress)
-                            .deadline(e.getDeadline())
-                            .dday(dday)
-                            .status(e.getStatus().name())
-                            .build();
-                })
-                .toList();
     }
 
     // 이번 주(월~일) 요일별 지출 합계. 인덱스 0=월 … 6=일
