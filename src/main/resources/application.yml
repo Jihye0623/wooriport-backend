@@ -32,12 +32,22 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      # Phase 2: 배치 poll 크기 튜닝 (SalaryRetryConsumer 는 단건 처리라 영향 없음)
-      max-poll-records: 500
+      # Phase 2: 배치 poll 크기 (SalaryRetryConsumer 는 단건 처리라 영향 없음)
+      max-poll-records: 2000
+      # Phase 3 sweep — fetch 튜닝 (주석 해제 후 재기동으로 적용)
+      #fetch-min-size: 1       # fetch.min.bytes: 기본 1 byte → 65536/131072 시도
+      #fetch-max-wait: 500     # fetch.max.wait.ms: 기본 500 ms → 100/50 시도
     # Phase 1: 급여 재처리 토픽 발행용 프로듀서 (JSON 문자열)
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Phase 3 sweep — producer 튜닝 (주석 해제 후 재기동으로 적용)
+      #acks: '1'               # 1(기본·빠름) | all(내구성·느림)
+      #compression-type: none  # none | lz4 | zstd
+      #batch-size: 16384       # bytes: 16384(기본) | 65536 | 131072
+      #enable-idempotence: false  # true 는 acks=all 강제 + 프로듀서 exactly-once
+      properties:
+        linger.ms: 0           # Phase 3 sweep: 0(기본·즉시) | 5 | 20 ms
 
   batch:
     job:
@@ -84,3 +94,9 @@ flask:
 chaos:
   salary-fail:    ${CHAOS_SALARY_FAIL:none}      # none | once | always — 급여 처리 강제 실패(재처리 토픽 데모)
   challenge-fail: ${CHAOS_CHALLENGE_FAIL:none}   # none | once | always — 챌린지 증분 강제 실패(DB 재계산 데모)
+
+# Phase 3 sweep 제어 — 아래 두 값만 바꿔가며 재기동
+wooriport:
+  kafka:
+    partitions: 6            # transaction-events 파티션 수: 3 | 6 | 9  (증가만 가능; 줄이려면 토픽 삭제)
+    consumer-concurrency: 6  # 컨슈머 동시 스레드 수: 1 | 3 | 6  (반드시 ≤ partitions)
