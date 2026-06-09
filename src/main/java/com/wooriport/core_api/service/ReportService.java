@@ -175,6 +175,13 @@ public class ReportService {
         List<AssetSnapshots> snapshots = assetSnapshotsRepository.findByUserIdAndMonth(userId, from, to);
         String assetSnapshotsJson = serializeAssetSnapshotsJson(snapshots);
 
+        LocalDateTime prevFrom = LocalDate.of(prevYear, prevMonth, 1).atStartOfDay();
+        LocalDateTime prevTo   = YearMonth.of(prevYear, prevMonth).atEndOfMonth().plusDays(1).atStartOfDay();
+        List<AssetSnapshots> prevSnapshots = assetSnapshotsRepository.findByUserIdAndMonth(userId, prevFrom, prevTo);
+
+        AssetSnapshots currSnap = snapshots.isEmpty()     ? null : snapshots.get(snapshots.size() - 1);
+        AssetSnapshots prevSnap = prevSnapshots.isEmpty() ? null : prevSnapshots.get(prevSnapshots.size() - 1);
+
         // 4-2. 주별 누적 소비 JSON (이번달 vs 전달)
         String weeklyExpensesJson = buildWeeklyExpensesJson(txList, prevExpenseList, year, month);
 
@@ -234,6 +241,12 @@ public class ReportService {
                 .totalIncome(totalIncome)
                 .totalExpense(totalExpense)
                 .surplus(totalIncome - totalExpense)
+                .prevTotalAmount(prevSnap   != null ? prevSnap.getTotalAmount()    : null)
+                .currTotalAmount(currSnap   != null ? currSnap.getTotalAmount()    : null)
+                .prevSavingsAmount(prevSnap != null ? prevSnap.getSavingsAmount()  : null)
+                .currSavingsAmount(currSnap != null ? currSnap.getSavingsAmount()  : null)
+                .prevInvestAmount(prevSnap  != null ? prevSnap.getInvestAmount()   : null)
+                .currInvestAmount(currSnap  != null ? currSnap.getInvestAmount()   : null)
                 .portfolioComment((String) res.get("trend_comment"))
                 .eventComment((String) res.get("challenge_comment"))
                 .marketSummary((String) res.get("market_condition"))
