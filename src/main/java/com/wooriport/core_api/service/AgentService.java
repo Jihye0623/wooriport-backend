@@ -142,9 +142,9 @@ public class AgentService {
                 Assets.AccountType.CMA,      Assets.AccountType.HOUSING_SUBSCRIPTION);
 
         Set<Assets.AccountType> MODERATE_TYPES = Set.of(
-                Assets.AccountType.IRP,       Assets.AccountType.ISA,
-                Assets.AccountType.PENSION_SAVINGS, Assets.AccountType.BOND_FUND,
-                Assets.AccountType.VARIABLE_ANNUITY);
+                Assets.AccountType.IRP,
+                Assets.AccountType.ISA,
+                Assets.AccountType.PENSION_SAVINGS);
 
         long totalBalance    = assets.stream()
                 .filter(a -> !EXCLUDED.contains(a.getAssetType()))
