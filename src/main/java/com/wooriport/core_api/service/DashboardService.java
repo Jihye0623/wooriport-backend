@@ -47,11 +47,13 @@ public class DashboardService {
             Assets.AccountType.PARKING,
             Assets.AccountType.SAVINGS,
             Assets.AccountType.DEPOSIT,
-            Assets.AccountType.CMA);
+            Assets.AccountType.CMA,
+            Assets.AccountType.HOUSING_SUBSCRIPTION);
     private static final Set<Assets.AccountType> INVESTMENT_TYPES = Set.of(
             Assets.AccountType.STOCK,
             Assets.AccountType.IRP,
-            Assets.AccountType.ISA);
+            Assets.AccountType.ISA,
+            Assets.AccountType.PENSION_SAVINGS);
 
     @Transactional(readOnly = true)
     public DashboardResponseDto getDashboard(UUID userId) {
