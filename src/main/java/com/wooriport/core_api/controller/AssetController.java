@@ -24,6 +24,18 @@ public class AssetController {
     private final AssetService assetService;
 
     @Operation(
+            summary = "마이데이터 연동 가능 기관 목록",
+            description = "이 사용자의 더미 마이데이터에 존재하는 기관 목록을 반환합니다. 연동 화면의 기관 선택지를 동적으로 구성하는 데 사용합니다."
+    )
+    @GetMapping("/mydata/institutions")
+    public ResponseEntity<ResponseDTO<MydataInstitutionsResponseDto>> getMydataInstitutions(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        return ResponseEntity.ok(ResponseDTO.success(200, "마이데이터 기관 목록 조회 성공",
+                assetService.getMydataInstitutions(userDetails.getUserId())));
+    }
+
+    @Operation(
             summary = "마이데이터 계좌 목록 미리보기",
             description = "연동 가능한 계좌 전체 목록을 반환합니다. 저장은 하지 않습니다."
     )
