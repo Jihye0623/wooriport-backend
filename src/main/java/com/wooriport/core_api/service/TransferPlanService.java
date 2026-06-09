@@ -84,6 +84,8 @@ public class TransferPlanService {
                         .planId(plan.getId())
                         .assetId(assetId)
                         .institution(plan.getAsset().getInstitution())
+                        .accountName(plan.getAsset().getAccountName())
+                        .accountPurpose(plan.getAsset().getAccountPurpose())
                         .assetType(plan.getAssetType() != null ? plan.getAssetType().name() : null)
                         .plannedAmount(plan.getPlannedAmount())
                         .baselineAmount(baseline)
@@ -105,10 +107,32 @@ public class TransferPlanService {
             }
         }
 
+        // 생활비(출발 계좌) — 이체 대상이 아니라 우리은행에 '남기는 몫'이라 표시 전용으로 추가 (planId=null)
+        // 단, 이번 달 플랜이 아직 없으면(첫 방문) 추가하지 않음 — 프론트의 빈 응답 → 자동생성 트리거를 막지 않기 위함
+        UUID autoTransferAssetId = user.getAutoTransferToAssetId();
+        if (!plans.isEmpty() && autoTransferAssetId != null) {
+            Portfolios autoPortfolio = portfolioByAssetId.get(autoTransferAssetId);
+            if (autoPortfolio != null) {
+                Assets autoAsset = autoPortfolio.getAsset();
+                long baseline = autoPortfolio.getAssetAmount();
+                portfolioItems.add(0, TransferPlanSummaryResponseDto.PortfolioPlanItem.builder()
+                        .planId(null)   // 실제 이체 계획이 아닌 표시 전용 (출발 계좌 자기이체 방지)
+                        .assetId(autoTransferAssetId)
+                        .institution(autoAsset.getInstitution())
+                        .accountName(autoAsset.getAccountName())
+                        .accountPurpose(autoAsset.getAccountPurpose())
+                        .assetType(mapAccountTypeToCategory(autoAsset.getAssetType()).name())
+                        .plannedAmount(baseline)
+                        .baselineAmount(baseline)
+                        .diff(0L)
+                        .isConfirmed(false)
+                        .build());
+            }
+        }
+
         long portfolioTotal    = portfolioItems.stream().mapToLong(TransferPlanSummaryResponseDto.PortfolioPlanItem::getPlannedAmount).sum();
-        // plan 생성과 동일하게 auto-transfer 자산 제외
+        // 생활비(출발 계좌)도 표시·합계에 포함하므로 baseline 도 동일하게 전체 포함
         long portfolioBaseline = portfolioByAssetId.values().stream()
-                .filter(p -> !p.getAsset().getId().equals(user.getAutoTransferToAssetId()))
                 .mapToLong(Portfolios::getAssetAmount).sum();
         long flowTotal         = flowPlanItems.stream().mapToLong(TransferPlanSummaryResponseDto.FlowPlanItem::getPlannedAmount).sum();
 
