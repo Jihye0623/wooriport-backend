@@ -329,9 +329,7 @@ public class PortfolioFlowService {
         List<PortfolioFlows> flows = portfolioFlowRepository.findAllByUserIdWithDetails(userId);
 
         List<FlowDto> flowDtos = flows.stream()
-                .sorted(Comparator
-                        .comparing((PortfolioFlows f) -> f.getEvent() != null) // 기본(NULL) 먼저
-                        .thenComparing(PortfolioFlows::getCreatedAt))
+                .sorted(Comparator.comparing(PortfolioFlows::getCreatedAt))
                 .map(this::toFlowDto)
                 .collect(Collectors.toList());
 
@@ -354,7 +352,6 @@ public class PortfolioFlowService {
 
         return FlowDto.builder()
                 .id(flow.getId())
-                .eventId(flow.getEvent() != null ? flow.getEvent().getId() : null)
                 .title(flow.getTitle())
                 .summary(flow.getSummary())
                 .term(flow.getTerm())
