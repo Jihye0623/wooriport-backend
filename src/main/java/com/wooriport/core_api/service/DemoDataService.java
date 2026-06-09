@@ -61,6 +61,9 @@ public class DemoDataService implements ApplicationRunner {
                     "SALARY_ASSET_ID", salaryAssetId.toString()
             ));
 
+            runScript("demo/asset_snapshots.sql", Map.of("USER_ID", userId.toString()));
+            log.info("[Demo] asset_snapshots 시드 완료: userId={}", userId);
+
             UUID isaAssetId = findAssetByType(userId, "ISA");
             if (isaAssetId != null) {
                 runScript("demo/tax_benefits.sql", Map.of("ISA_ASSET_ID", isaAssetId.toString()));
