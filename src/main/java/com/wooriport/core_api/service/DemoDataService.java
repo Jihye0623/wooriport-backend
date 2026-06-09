@@ -1,5 +1,9 @@
 package com.wooriport.core_api.service;
 
+import com.wooriport.core_api.domain.Assets;
+import com.wooriport.core_api.domain.Users;
+import com.wooriport.core_api.repository.AssetRepository;
+import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +24,8 @@ import java.util.UUID;
 public class DemoDataService implements ApplicationRunner {
 
     private final JdbcTemplate jdbc;
+    private final UserRepository userRepository;
+    private final AssetRepository assetRepository;
 
     @Value("${demo.email:}")
     private String demoEmail;
@@ -64,15 +70,47 @@ public class DemoDataService implements ApplicationRunner {
             runScript("demo/asset_snapshots.sql", Map.of("USER_ID", userId.toString()));
             log.info("[Demo] asset_snapshots 시드 완료: userId={}", userId);
 
+            runScript("demo/mini_challenges.sql", Map.of("USER_ID", userId.toString()));
+            log.info("[Demo] mini_challenges 시드 완료: userId={}", userId);
+
+            runScript("demo/portfolio_flows.sql", Map.of("USER_ID", userId.toString()));
+            log.info("[Demo] portfolio_flows 시드 완료: userId={}", userId);
+
+            UUID pensionAssetId = findAssetByType(userId, "PENSION_SAVINGS");
+            if (pensionAssetId != null) {
+                runScript("demo/pension_transactions.sql", Map.of(
+                        "USER_ID", userId.toString(),
+                        "PENSION_ASSET_ID", pensionAssetId.toString()
+                ));
+                log.info("[Demo] pension_transactions 시드 완료: userId={}", userId);
+            }
+
             UUID isaAssetId = findAssetByType(userId, "ISA");
             if (isaAssetId != null) {
                 runScript("demo/tax_benefits.sql", Map.of("ISA_ASSET_ID", isaAssetId.toString()));
                 log.info("[Demo] tax_benefit_accounts 시드 완료: isaAssetId={}", isaAssetId);
             }
-            log.info("[Demo] 거래내역 자동 시드 완료: userId={}", userId);
+            log.info("[Demo] 전체 더미 시드 완료: userId={}", userId);
         } catch (Exception e) {
             log.warn("[Demo] 거래내역 자동 시드 실패 (무시): {}", e.getMessage());
         }
+    }
+
+    // ──────────────────────────────────────
+    // 수동 재시드 (테스트 전용)
+    // ──────────────────────────────────────
+    public void reseed() {
+        if (demoEmail.isBlank()) throw new IllegalStateException("demo.email 설정 필요");
+
+        Users user = userRepository.findByEmail(demoEmail)
+                .orElseThrow(() -> new IllegalStateException("데모 유저 없음: " + demoEmail));
+
+        Assets salaryAsset = assetRepository
+                .findByUserIdAndIsSalaryTrueAndDeletedAtIsNull(user.getId())
+                .orElseThrow(() -> new IllegalStateException("급여 계좌 미설정"));
+
+        log.info("[Demo] 재시드 시작: userId={}, salaryAssetId={}", user.getId(), salaryAsset.getId());
+        onSalaryAccountSet(user.getId(), demoEmail, salaryAsset.getId());
     }
 
     // ──────────────────────────────────────

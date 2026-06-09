@@ -27,7 +27,7 @@ public class MonthlyReportScheduler {
      * 테스트 시: "0 * * * * *" (매분)
      * 운영 시:   "0 0 0 1 * *" (매월 1일 자정)
      */
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 0 1 * *")
     public void run() {
         try {
             JobParameters params = new JobParametersBuilder()
