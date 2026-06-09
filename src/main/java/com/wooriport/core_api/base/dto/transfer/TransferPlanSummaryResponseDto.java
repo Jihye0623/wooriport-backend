@@ -37,6 +37,8 @@ public class TransferPlanSummaryResponseDto {
         private UUID planId;
         private UUID assetId;
         private String institution;
+        private String accountName;     // 통장 이름 (Assets.accountName) — 화면 좌측 표시
+        private String accountPurpose;  // 통장 별명/용도 (Assets.accountPurpose) "생활비/비상금/적금" — 태그 표시
         private String assetType;
         private Long plannedAmount;    // 실제 (AI 조정 포함)
         private Long baselineAmount;   // portfolios.asset_amount
