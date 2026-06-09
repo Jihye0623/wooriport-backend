@@ -71,19 +71,24 @@ Phase 1 그대로 per-item best-effort. `batchPersist` 커밋 이후 순차 실�
 
 ---
 
-## 트랙 A — 성능 측정 (측정 후 기입)
+## 트랙 A — 성능 측정
 
-환경: Ryzen 5 5600X, N=100k, rate=0, max.poll.records=500, 단일 컨슈머.
+환경: Ryzen 5 5600X (6C/12T), **18유저/18카드**, N=100k, rate=0, max.poll.records=500, 단일 컨슈머.
+측정일 2026-06-09 (데스크탑 재베이스라인, 런마다 토픽 클린 재생성).
 
 | 지표 | Baseline (v0) | Phase 1 (v1) | Phase 2 (v2) | v1→v2 변화 |
 |------|--------------|-------------|-------------|-----------|
-| consumer 처리량 (msg/s) | ~301 | ~248 | 측정 필요 | — |
-| tx.persist p50 (ms) | 2.49 | 3.15 | 측정 필요 | — |
-| tx.persist p95 (ms) | 3.01 | 3.67 | 측정 필요 | — |
-| tx.batch.size p50 | — | — | 측정 필요 | — |
-| tx.batch.size p95 | — | — | 측정 필요 | — |
+| consumer 처리량 (msg/s) | 305.8 | 253.8 | **1,485** | **+485% (5.85×)** |
+| tx.persist p50 | 2.49 ms (건당) | 3.15 ms (건당) | 87 ms (배치당) | 건당 0.18 ms |
+| tx.persist p95 | 2.88 ms | 3.54 ms | 104 ms (배치당) | — |
+| tx.batch.size avg | — | — | 487.8 | poll당 수신 |
+| poll(배치) 횟수 | 100,000 | 100,000 | 205 | 건당→배치당 |
+| E2E max | 327 s | 394 s | 67.3 s | −83% |
 
-> 측정 완료 후 실수치로 채우고 `RESULTS.md` 에 반영.
+> v1→v2: 멱등 적재로 −17% 떨어진 처리량을 배치(`saveAll` + 배치 dedup 1쿼리 + poll 단위 TX)로
+> **5.85배** 회복(+초과). persist 가 "건당 2.49 ms"에서 "배치(≈488건)당 87 ms = 건당 0.18 ms"로,
+> **건당 DB 비용 약 14배 감소**. 정합성 테스트(`KafkaResilienceIntegrationTest`)는 그대로 green.
+> (v0/v1 persist p50 가 옛 측정과 정확히 일치 → 데이터셋 18유저 변경이 persist 특성에 영향 없음 확인.)
 
 ---
 
