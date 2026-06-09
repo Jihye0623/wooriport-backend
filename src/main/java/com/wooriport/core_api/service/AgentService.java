@@ -419,7 +419,8 @@ public class AgentService {
             throw new IllegalStateException("FastAPI 응답에 investment_flows 가 없습니다.");
         }
 
-        // 4. 기존 흐름 삭제 — 새 처방전으로 교체
+        // 4. 기존 흐름 중 '미확정(isActive=false)'만 삭제 — 새 처방전 1세트로 교체
+        //    '관리 시작하기'로 확정(isActive=true)한 포트폴리오는 보존
         List<PortfolioFlows> existing = portfolioFlowRepository.findAllByUserIdWithDetails(userId).stream()
                 .collect(Collectors.toList());
         if (!existing.isEmpty()) {

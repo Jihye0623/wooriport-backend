@@ -5,6 +5,7 @@ import com.wooriport.core_api.base.dto.challenge.ChallengeCreateRequestDto;
 import com.wooriport.core_api.base.dto.challenge.ChallengeProposalResponseDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.config.security.CustomUserDetails;
+import com.wooriport.core_api.base.batch.scheduler.ChallengeScheduler;
 import com.wooriport.core_api.service.ChallengeAgentService;
 import com.wooriport.core_api.service.ChallengeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ public class ChallengeController {
 
     private final ChallengeService challengeService;
     private final ChallengeAgentService challengeAgentService;
+    private final ChallengeScheduler challengeScheduler;
 
     @Operation(summary = "챌린지 저장", description = "프론트에서 승인한 챌린지를 IN_PROGRESS 상태로 저장합니다.")
     @PostMapping
@@ -56,6 +58,13 @@ public class ChallengeController {
         return ResponseEntity.ok(
                 ResponseDTO.success(200, "활성 챌린지 조회 성공",
                         challengeService.getActiveChallenge(userDetails.getUserId())));
+    }
+
+    @Operation(summary = "[TEST] 만료 챌린지 수동 판정", description = "배치 없이 직접 만료 챌린지 판정을 트리거합니다. 테스트 전용.")
+    @PostMapping("/trigger")
+    public ResponseEntity<ResponseDTO<Void>> trigger() {
+        challengeScheduler.checkExpiredChallenges();
+        return ResponseEntity.ok(ResponseDTO.success(200, "만료 챌린지 판정 완료", null));
     }
 
     @Operation(summary = "챌린지 난이도/주제 조정", description = "이전 제안에 대한 피드백을 반영해 챌린지를 재생성합니다.")

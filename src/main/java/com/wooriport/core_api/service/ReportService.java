@@ -254,6 +254,17 @@ public class ReportService {
         log.info("[ReportJob] 완료 — userId: {}, {}년 {}월", userId, year, month);
     }
 
+    public void generateMonthlyReportForAll(int year, int month) {
+        List<Users> users = userRepository.findAllActiveUsers();
+        for (Users user : users) {
+            try {
+                generateMonthlyReport(user.getId(), year, month);
+            } catch (Exception e) {
+                log.error("[ReportJob] 실패 — userId: {}, 사유: {}", user.getId(), e.getMessage(), e);
+            }
+        }
+    }
+
     // ──────────────────────────────────────
     // 카테고리별 소비 저장
     // ──────────────────────────────────────

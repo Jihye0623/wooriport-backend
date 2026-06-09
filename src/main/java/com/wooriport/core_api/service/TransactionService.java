@@ -42,8 +42,9 @@ public class TransactionService {
 
         Users user = asset.getUser();
 
-        // CREDIT_CARD 결제는 출금이므로 음수로 적재 (양수=입금 / 음수=출금)
-        long amount = -Math.abs(event.getAmount());
+        // 급여 등 입금 카테고리는 양수, 카드 결제 등 출금은 음수로 적재 (양수=입금 / 음수=출금)
+        boolean income = isIncomeCategory(event.getCategory());
+        long amount = income ? Math.abs(event.getAmount()) : -Math.abs(event.getAmount());
 
         Transactions transaction = Transactions.builder()
                 .user(user)
@@ -68,7 +69,14 @@ public class TransactionService {
                 event.getSenderName(),
                 event.getTransactionAt(),
                 Math.abs(event.getAmount()),
-                event.getAmount() > 0);
+                income);
+    }
+
+    // 급여/월급/임금/salary 등 입금 카테고리 판별 (SalaryService.isSalary 와 동일 기준)
+    private static boolean isIncomeCategory(String category) {
+        if (category == null) return false;
+        return category.contains("급여") || category.contains("월급")
+                || category.contains("임금") || category.contains("salary");
     }
 
     @Transactional(readOnly = true)

@@ -1,6 +1,7 @@
 package com.wooriport.core_api.controller;
 
 
+import com.wooriport.core_api.base.batch.scheduler.SalaryTransferScheduler;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.base.dto.transfer.TransferExecutionListResponseDto;
 import com.wooriport.core_api.base.dto.transfer.TransferExecutionResponseDto;
@@ -20,6 +21,14 @@ import org.springframework.web.bind.annotation.*;
 public class TransferExecutionController {
 
     private final TransferExecutionService transferExecutionService;
+    private final SalaryTransferScheduler salaryTransferScheduler;
+
+    @Operation(summary = "[TEST] 급여 자동이체 수동 트리거", description = "배치 없이 오늘 급여일인 유저의 이체 + 리밸런싱을 즉시 실행합니다. 테스트 전용.")
+    @PostMapping("/trigger")
+    public ResponseEntity<ResponseDTO<Void>> trigger() {
+        salaryTransferScheduler.run();
+        return ResponseEntity.ok(ResponseDTO.success(200, "급여 자동이체 실행 완료", null));
+    }
 
     /**
      * GET /api/v1/transfer-executions?year=2025&month=5
