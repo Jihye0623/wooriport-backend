@@ -74,6 +74,14 @@ public class GlobalExceptionHandler {
                 .body(ResponseDTO.fail(422, e.getMessage()));
     }
 
+    // 503 — AI 서비스 호출 실패
+    @ExceptionHandler(AiServiceException.class)
+    public ResponseEntity<?> handleAiServiceUnavailable(AiServiceException e) {
+        log.error("[503] AI 서비스 호출 실패: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ResponseDTO.fail(503, "AI 서비스를 일시적으로 사용할 수 없습니다."));
+    }
+
     // 500 — 서버 내부 오류
     @ExceptionHandler({IllegalStateException.class, Exception.class})
     public ResponseEntity<?> handleServerError(Exception e) {

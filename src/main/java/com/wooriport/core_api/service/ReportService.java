@@ -395,7 +395,7 @@ public class ReportService {
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            log.warn("[ReportJob] assetSnapshots 파싱 실패: {}", e.getMessage());
+            log.error("[ReportJob] assetSnapshots 파싱 실패 — 데이터 손상 가능성: {}", e.getMessage());
             return List.of();
         }
     }
@@ -412,7 +412,7 @@ public class ReportService {
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
-            log.warn("[ReportJob] weeklyExpenses 파싱 실패: {}", e.getMessage());
+            log.error("[ReportJob] weeklyExpenses 파싱 실패 — 데이터 손상 가능성: {}", e.getMessage());
             return List.of();
         }
     }

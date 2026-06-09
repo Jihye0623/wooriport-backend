@@ -2,6 +2,7 @@ package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.agent.*;
 import com.wooriport.core_api.base.dto.user.PortiSurveyRequestDto;
+import com.wooriport.core_api.base.exception.AiServiceException;
 import com.wooriport.core_api.base.exception.PortfolioNotSetException;
 import com.wooriport.core_api.base.exception.SalaryNotFoundException;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
@@ -233,8 +234,8 @@ public class AgentService {
                 .fixedExpense(fixedExpense)
                 .totalFixedExpense(totalFixed)
                 .investTendency(investTendency)
-                .expenseComment((String) flaskResponse.get("expense_comment"))
-                .investComment((String) flaskResponse.get("invest_comment"))
+                .expenseComment(getString(flaskResponse, "expense_comment"))
+                .investComment(getString(flaskResponse, "invest_comment"))
                 .investor(investor)
                 .build();
     }
@@ -322,12 +323,12 @@ public class AgentService {
 
         List<AgentRecommendResponseDto.RebalancingPlan> plans = rawPlans.stream()
                 .map(p -> {
-                    String assetId       = (String) p.get("asset_id");
-                    String accountPurpose = (String) p.get("account_purpose");
-                    Long amount          = p.get("amount") != null
+                    String assetId        = getString(p, "asset_id");
+                    String accountPurpose = getString(p, "account_purpose");
+                    Long amount           = p.get("amount") != null
                             ? ((Number) p.get("amount")).longValue()
                             : 0L;
-                    String comment        = (String) p.get("comment");
+                    String comment        = getString(p, "comment");
 
                     Assets matched = assetIdMap.get(assetId);
 
@@ -434,9 +435,9 @@ public class AgentService {
 
         // 6. 각 investment_flow 저장 (끌어오기 PULL 제거 — gathering + portfolio(PUT)만 저장)
         for (Map<String, Object> flowDto : investmentFlows) {
-            String title = (String) flowDto.get("title");
-            String summary = (String) flowDto.get("summary");
-            String term = (String) flowDto.get("term");   // 단기/중기/장기 등 원본 그대로
+            String title   = getString(flowDto, "title");
+            String summary = getString(flowDto, "summary");
+            String term    = getString(flowDto, "term");   // 단기/중기/장기 등 원본 그대로
             Long flowAmount = toLong(flowDto.get("amount"));
 
             // 모을 통장: gathering_id 있으면 보유 계좌 선택, null 이면 계좌 추천(gathering_account 정보 저장)
@@ -457,15 +458,15 @@ public class AgentService {
                     .term(term)
                     .amount(flowAmount)
                     .gatheringAsset(gatheringAsset)
-                    .gatheringName(gatheringAccount != null ? (String) gatheringAccount.get("name") : null)
-                    .gatheringType(gatheringAccount != null ? (String) gatheringAccount.get("type") : null)
-                    .gatheringInstitution(gatheringAccount != null ? (String) gatheringAccount.get("institution") : null)
+                    .gatheringName(gatheringAccount != null ? getString(gatheringAccount, "name") : null)
+                    .gatheringType(gatheringAccount != null ? getString(gatheringAccount, "type") : null)
+                    .gatheringInstitution(gatheringAccount != null ? getString(gatheringAccount, "institution") : null)
                     .gatheringInterestRate(gatheringAccount != null ? toDouble(gatheringAccount.get("interest_rate")) : null)
-                    .accountComment((String) flowDto.get("account_comment"))
+                    .accountComment(getString(flowDto, "account_comment"))
                     .expectedRrPct(toDouble(flowDto.get("expected_rr_pct")))
                     .investmentMonths(toInteger(flowDto.get("investment_months")))
                     .expectedAmount(toDouble(flowDto.get("expected_amount")))
-                    .rrComment((String) flowDto.get("rr_comment"))
+                    .rrComment(getString(flowDto, "rr_comment"))
                     .isActive(false)
                     .build();
             PortfolioFlows savedFlow = portfolioFlowRepository.save(flow);
@@ -476,7 +477,7 @@ public class AgentService {
                     (List<Map<String, Object>>) flowDto.get("portfolio");
             if (portfolio != null) {
                 for (Map<String, Object> p : portfolio) {
-                    String name = (String) p.get("name");
+                    String name = getString(p, "name");
                     Integer ratio = p.get("ratio") != null
                             ? ((Number) p.get("ratio")).intValue() : 0;
                     Products product = name != null ? productByName.get(name) : null;
@@ -484,7 +485,7 @@ public class AgentService {
                             .flow(savedFlow)
                             .product(product)
                             .productRatio(ratio)
-                            .aiComment((String) p.get("comment"))
+                            .aiComment(getString(p, "comment"))
                             .build());
                 }
             }
@@ -494,7 +495,12 @@ public class AgentService {
                 userId, investmentFlows.size());
     }
 
-    // FastAPI 응답(JSON number)의 안전한 형 변환 헬퍼 (toLong 은 기존 메서드 재사용)
+    // FastAPI 응답(JSON number/string)의 안전한 형 변환 헬퍼
+    private static String getString(Map<String, Object> map, String key) {
+        Object val = map.get(key);
+        return val instanceof String s ? s : null;
+    }
+
     private static Double toDouble(Object v) {
         return v != null ? ((Number) v).doubleValue() : null;
     }
@@ -524,7 +530,7 @@ public class AgentService {
 
         } catch (Exception e) {
             log.error("[GoalAgent] Flask 호출 실패 — path: {}, 사유: {}", path, e.getMessage());
-            throw new IllegalStateException("AI 서버 호출 실패: " + e.getMessage());
+            throw new AiServiceException("AI 서버 호출 실패: " + e.getMessage());
         }
     }
 
