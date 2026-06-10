@@ -143,7 +143,14 @@ public class TransferPlanService {
         long baseRemaining = userSalary - portfolioBaseline - monthlyInvestAmount;
         long remainingDiff = remaining - baseRemaining;
 
-        String rebalanceComment = plans.isEmpty() ? null : plans.get(0).getRebalanceComment();
+        // rebalanceComment 는 한 달치 플랜 중 한 행에만 저장되는데,
+        // 조회 쿼리는 ORDER BY assetType 으로 정렬되어 저장 시의 get(0) 행과
+        // 읽기 시의 get(0) 행이 달라질 수 있다. 정렬과 무관하게 값이 있는 행에서 가져온다.
+        String rebalanceComment = plans.stream()
+                .map(TransferPlans::getRebalanceComment)
+                .filter(c -> c != null)
+                .findFirst()
+                .orElse(null);
 
         return TransferPlanSummaryResponseDto.builder()
                 .currentSalary(currentSalary)
@@ -495,7 +502,14 @@ public class TransferPlanService {
                         .build())
                 .collect(Collectors.toList());
 
-        String rebalanceComment = plans.isEmpty() ? null : plans.get(0).getRebalanceComment();
+        // rebalanceComment 는 한 달치 플랜 중 한 행에만 저장되는데,
+        // 조회 쿼리는 ORDER BY assetType 으로 정렬되어 저장 시의 get(0) 행과
+        // 읽기 시의 get(0) 행이 달라질 수 있다. 정렬과 무관하게 값이 있는 행에서 가져온다.
+        String rebalanceComment = plans.stream()
+                .map(TransferPlans::getRebalanceComment)
+                .filter(c -> c != null)
+                .findFirst()
+                .orElse(null);
 
         return TransferPlanListResponseDto.builder()
                 .plans(items)
@@ -522,7 +536,14 @@ public class TransferPlanService {
                         .build())
                 .collect(Collectors.toList());
 
-        String rebalanceComment = plans.isEmpty() ? null : plans.get(0).getRebalanceComment();
+        // rebalanceComment 는 한 달치 플랜 중 한 행에만 저장되는데,
+        // 조회 쿼리는 ORDER BY assetType 으로 정렬되어 저장 시의 get(0) 행과
+        // 읽기 시의 get(0) 행이 달라질 수 있다. 정렬과 무관하게 값이 있는 행에서 가져온다.
+        String rebalanceComment = plans.stream()
+                .map(TransferPlans::getRebalanceComment)
+                .filter(c -> c != null)
+                .findFirst()
+                .orElse(null);
 
         return TransferPlanListResponseDto.builder()
                 .plans(items)
