@@ -21,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -39,6 +41,38 @@ public class AssetService {
     private final PortfolioFlowRepository portfolioFlowRepository;
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
     private final DemoDataService demoDataService;
+
+    @Transactional(readOnly = true)
+    public MydataInstitutionsResponseDto getMydataInstitutions(UUID userId) {
+        Users user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException());
+
+        List<DummyMydata> dummyList = dummyMydataRepository.findByEmail(user.getEmail());
+
+        if (dummyList.isEmpty()) {
+            throw new IllegalStateException("연동 가능한 계좌 데이터가 없습니다: " + user.getEmail());
+        }
+
+        // 기관명 기준으로 묶되 더미 테이블의 등장 순서를 유지
+        Map<String, List<DummyMydata>> grouped = dummyList.stream()
+                .collect(Collectors.groupingBy(
+                        DummyMydata::getInstitution,
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+
+        List<MydataInstitutionsResponseDto.InstitutionItem> items = grouped.entrySet().stream()
+                .map(e -> MydataInstitutionsResponseDto.InstitutionItem.builder()
+                        .institution(e.getKey())
+                        .bankType(e.getValue().get(0).getBankType().name())
+                        .accountCount(e.getValue().size())
+                        .build())
+                .toList();
+
+        return MydataInstitutionsResponseDto.builder()
+                .institutions(items)
+                .totalCount(items.size())
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public MydataPreviewResponseDto previewMydata(UUID userId, List<String> institutions) {

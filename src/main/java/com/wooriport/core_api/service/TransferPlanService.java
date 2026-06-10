@@ -262,11 +262,15 @@ public class TransferPlanService {
 
         transferPlanRepository.saveAll(plans);
 
+        // 급여 변동 여부로 알림 문구 분기 (Case1: 변동없음 / Case2: 변동있음 — isOutOfRange 재사용)
+        String salaryNotiContent = isOutOfRange
+                ? "월급에 변동이 생겼어요! - 변동된 금액에 맞춰 PorTI 가이드를 다시 세워봐요!"
+                : "급여가 들어왔어요 - PorTI의 월급 가이드를 확인하고 편하게 분배해봐요!";
         notificationService.saveAndSend(
                 user.getId(),
                 Notifications.NotificationType.SALARY_REBALANCING,
-                "월급이 들어왔네요!",
-                "새로 나눴어요! 확인하고 자동 이체할게요!");
+                "월급",
+                salaryNotiContent);
 
         log.info("[TransferPlanService] 이체 계획 생성 완료 — userId: {}, 급여: {}원, portfolios: {}건, flowItems: {}건",
                 userId, monthlySalary, portfolioPlans.size(), flowPlans.size());
