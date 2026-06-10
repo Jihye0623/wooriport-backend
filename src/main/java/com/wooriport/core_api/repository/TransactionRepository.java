@@ -82,6 +82,7 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
         SELECT t FROM Transactions t
         WHERE t.user.id = :userId
           AND t.amount > 0
+          AND t.transactionAt <= CURRENT_TIMESTAMP
           AND (
               t.category LIKE '%급여%'
               OR t.category LIKE '%월급%'
@@ -97,6 +98,7 @@ public interface TransactionRepository extends JpaRepository<Transactions, UUID>
         SELECT t FROM Transactions t
         WHERE t.asset.id = :assetId
           AND t.amount > 0
+          AND t.transactionAt <= CURRENT_TIMESTAMP
           AND (
               t.category LIKE '%급여%'
               OR t.category LIKE '%월급%'

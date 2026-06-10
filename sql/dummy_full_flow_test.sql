@@ -142,7 +142,9 @@ BEGIN
     INSERT INTO transactions (id, user_id, asset_id, amount, category, sender_name, transaction_at) VALUES
     (gen_random_uuid(), v_user, v_salary_asset, 4800000, '급여', '우리포트(주)', date_trunc('month', NOW()) - INTERVAL '2 month' + INTERVAL '24 day'),
     (gen_random_uuid(), v_user, v_salary_asset, 4800000, '급여', '우리포트(주)', date_trunc('month', NOW()) - INTERVAL '1 month' + INTERVAL '24 day'),
-    (gen_random_uuid(), v_user, v_salary_asset, 4800000, '급여', '우리포트(주)', date_trunc('month', NOW())                       + INTERVAL '24 day');
+    -- 이번 달 급여: 25일이 아직 안 지났으면 NOW() 로 상한 → 미래 날짜 방지
+    -- (미래 날짜면 findLatestSalaryTransaction 의 ORDER BY transaction_at DESC 가 이 행을 계속 '최신'으로 잡아 mock 급여가 반영 안 됨)
+    (gen_random_uuid(), v_user, v_salary_asset, 4800000, '급여', '우리포트(주)', LEAST(date_trunc('month', NOW()) + INTERVAL '24 day', NOW()));
 
     -- ─────────────────────────────────────────────
     -- 3-2. 변동 지출 — 3개월치 (식비/카페/문화/온라인쇼핑/교통)
