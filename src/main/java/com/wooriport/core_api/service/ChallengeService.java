@@ -121,7 +121,15 @@ public class ChallengeService {
         if (progress >= 100) {
             UUID challengeId = UUID.fromString(cache.get("id").toString());
             syncToDb(userId, challengeId);
-            miniChallengesRepository.findById(challengeId).ifPresent(MiniChallenges::fail);
+            miniChallengesRepository.findById(challengeId).ifPresent(challenge -> {
+                challenge.fail();
+                notificationService.saveAndSend(
+                        userId,
+                        Notifications.NotificationType.CHALLENGE_FAILED,
+                        "챌린지 종료",
+                        "\"" + challenge.getTitle() + "\" 챌린지가 종료되었어요. 다음엔 꼭 성공해봐요!"
+                );
+            });
             challengeRedisService.delete(userId);
             log.info("[Challenge] 한도 초과 즉시 실패 — userId: {}, challengeId: {}", userId, challengeId);
         }
