@@ -8,6 +8,7 @@ import com.wooriport.core_api.base.exception.AiServiceException;
 import com.wooriport.core_api.base.exception.UserNotFoundException;
 import com.wooriport.core_api.domain.Transactions;
 import com.wooriport.core_api.domain.Users;
+import com.wooriport.core_api.repository.ProductRepository;
 import com.wooriport.core_api.repository.TransactionRepository;
 import com.wooriport.core_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class ChallengeAgentService {
     private final WebClient webClient;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
 
     @Value("${flask.ml-url}")
     private String flaskMlUrl;
@@ -41,7 +43,9 @@ public class ChallengeAgentService {
         body.put("user_id", userId.toString());
         body.put("category_expense", fetchExpenses(userId));
         body.put("stock_themes", fetchStockThemes(userId));
-        return callFlask("/mini_challenge", body, ChallengeProposalResponseDto.class);
+        ChallengeProposalResponseDto res = callFlask("/mini_challenge", body, ChallengeProposalResponseDto.class);
+        fillTickerName(res);
+        return res;
     }
 
     public ChallengeProposalResponseDto adjust(UUID userId, String feedback) {
@@ -49,7 +53,9 @@ public class ChallengeAgentService {
                 "user_id",  userId.toString(),
                 "feedback", feedback
         );
-        return callFlask("/mini_challenge/adjust", body, ChallengeProposalResponseDto.class);
+        ChallengeProposalResponseDto res = callFlask("/mini_challenge/adjust", body, ChallengeProposalResponseDto.class);
+        fillTickerName(res);
+        return res;
     }
 
     public ChallengeRewardResponseDto reward(UUID userId, MiniChallenges challenge) {
@@ -70,6 +76,12 @@ public class ChallengeAgentService {
                 "progress_pct",   progressPct
         );
         return callFlask("/mini_challenge/nag", body, ChallengeNagResponseDto.class);
+    }
+
+    private void fillTickerName(ChallengeProposalResponseDto dto) {
+        if (dto.getTicker() == null || dto.getTicker().isBlank()) return;
+        productRepository.findFirstByTicker(dto.getTicker())
+                .ifPresent(p -> dto.setTickerName(p.getName()));
     }
 
     private List<Map<String, Object>> fetchExpenses(UUID userId) {

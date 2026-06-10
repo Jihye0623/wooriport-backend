@@ -2,6 +2,7 @@ package com.wooriport.core_api.base.dto.challenge;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Getter;
+import lombok.Setter;
 
 // 입력(Flask /mini_challenge 응답)은 snake_case → @JsonAlias 로 수용,
 // 출력(프론트 응답)은 필드명 camelCase 로 직렬화 (다른 DTO와 동일 규약)
@@ -29,4 +30,7 @@ public class ChallengeProposalResponseDto {
     private Long estimatedSaving;
 
     private String ticker;
+
+    @Setter
+    private String tickerName;
 }

@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 
 import java.util.*;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -306,16 +307,30 @@ public class ReportService {
 
         long totalExpense = currentAmounts.values().stream().mapToLong(Long::longValue).sum();
 
-        List<ReportCategoryExpenses> categoryList = currentAmounts.entrySet().stream()
-                .map(e -> ReportCategoryExpenses.builder()
-                        .report(report)
-                        .category(e.getKey())
-                        .amount(e.getValue())
-                        .prevAmount(prevAmounts.getOrDefault(e.getKey(), null))
-                        .ratio(totalExpense > 0 ? (int)(e.getValue() * 100 / totalExpense) : 0)
-                        .hoverComment(hoverMap.getOrDefault(e.getKey(), null))
-                        .build())
-                .collect(Collectors.toList());
+        // 최대 나머지법: 소수점 버림 누적으로 합계가 100%가 안 되는 문제 방지
+        List<Map.Entry<String, Long>> entries = new ArrayList<>(currentAmounts.entrySet());
+        double[] exact   = entries.stream()
+                .mapToDouble(e -> totalExpense > 0 ? e.getValue() * 100.0 / totalExpense : 0)
+                .toArray();
+        int[] ratios     = Arrays.stream(exact).mapToInt(r -> (int) r).toArray();
+        int remainder    = 100 - Arrays.stream(ratios).sum();
+        Integer[] idx    = java.util.stream.IntStream.range(0, entries.size()).boxed()
+                .sorted((a, b) -> Double.compare(exact[b] - ratios[b], exact[a] - ratios[a]))
+                .toArray(Integer[]::new);
+        for (int i = 0; i < remainder && i < idx.length; i++) ratios[idx[i]]++;
+
+        List<ReportCategoryExpenses> categoryList = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i++) {
+            Map.Entry<String, Long> e = entries.get(i);
+            categoryList.add(ReportCategoryExpenses.builder()
+                    .report(report)
+                    .category(e.getKey())
+                    .amount(e.getValue())
+                    .prevAmount(prevAmounts.getOrDefault(e.getKey(), null))
+                    .ratio(ratios[i])
+                    .hoverComment(hoverMap.getOrDefault(e.getKey(), null))
+                    .build());
+        }
 
         report.getCategoryExpenses().addAll(categoryList);
         reportRepository.save(report);
