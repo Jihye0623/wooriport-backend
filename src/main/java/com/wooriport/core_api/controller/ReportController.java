@@ -36,20 +36,6 @@ public class ReportController {
     }
 
     // ────────────────────────────────────────────
-    // POST /reports/generate/{year}/{month}  (테스트용 수동 트리거)
-    // ────────────────────────────────────────────
-    @Operation(summary = "[TEST] 월간 리포트 수동 생성", description = "배치 없이 전체 활성 유저의 리포트 생성을 트리거합니다. 테스트 전용.")
-    @PostMapping("/generate/{year}/{month}")
-    public ResponseEntity<ResponseDTO<Void>> generate(
-            @PathVariable int year,
-            @PathVariable int month) {
-
-        reportService.generateMonthlyReportForAll(year, month);
-
-        return ResponseEntity.ok(ResponseDTO.success(200, "리포트 생성 완료", null));
-    }
-
-    // ────────────────────────────────────────────
     // GET /reports/{year}/{month}
     // ────────────────────────────────────────────
     @Operation(summary = "특정 월 리포트 상세 조회")

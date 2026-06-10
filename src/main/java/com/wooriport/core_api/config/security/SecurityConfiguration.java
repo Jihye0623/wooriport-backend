@@ -56,6 +56,7 @@ public class SecurityConfiguration {
                                 "/webjars/**"
                         ).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
+                        .requestMatchers("/api/v1/trigger/**").permitAll() // 테스트 전용 수동 트리거
                         .anyRequest().authenticated() // 그 외 모든 요청은 JWT 인증 필요
                 )
 
