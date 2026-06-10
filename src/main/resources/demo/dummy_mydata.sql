@@ -13,5 +13,5 @@ INSERT INTO dummy_mydata (email, institution, asset_type, account_name, account_
     ('{EMAIL}', '우리은행',   'STOCK',           'TIGER 미국S&P500',  null,  '5555-44-444444',      4000000, 'WOORI', false),
     ('{EMAIL}', '토스뱅크',   'PARKING',         '여행 모음통장',     null,   '4444-66-666666',       335000, 'OTHER', false),
     ('{EMAIL}', '한국투자',   'PENSION_SAVINGS',  '연금저축펀드',     null,   '8888-88-888888',      5000000, 'OTHER', false),
-    ('{EMAIL}', '우리은행',   'CREDIT_CARD',     '우리 카드의정석',   null,   '5570-1111-2222-3333',       0, 'WOORI', false),
-    ('{EMAIL}', '신한은행',   'CREDIT_CARD',     '신한 Deep Dream',   null,   '4000-4444-5555-6666',       0, 'OTHER', false);
+    ('{EMAIL}', '우리카드',   'CREDIT_CARD',     '우리 카드의정석',   null,   '5570-1111-2222-3333',       0, 'WOORI', false),
+    ('{EMAIL}', '신한카드',   'CREDIT_CARD',     '신한 Deep Dream',   null,   '4000-4444-5555-6666',       0, 'OTHER', false);
