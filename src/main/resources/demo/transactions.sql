@@ -11,9 +11,7 @@ DELETE FROM transactions WHERE user_id = '{USER_ID}';
 INSERT INTO transactions (id, user_id, asset_id, amount, category, sender_name, transaction_at) VALUES
     (gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', 4800000, '급여', '우리포트(주)', date_trunc('month', NOW()) - INTERVAL '3 month' + INTERVAL '24 day'),
     (gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', 4800000, '급여', '우리포트(주)', date_trunc('month', NOW()) - INTERVAL '2 month' + INTERVAL '24 day'),
-    (gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', 4800000, '급여', '우리포트(주)', date_trunc('month', NOW()) - INTERVAL '1 month' + INTERVAL '24 day'),
-    (gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', 4800000, '급여', '우리포트(주)', date_trunc('month', NOW())                       + INTERVAL '24 day');
-
+    (gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', 4800000, '급여', '우리포트(주)', date_trunc('month', NOW()) - INTERVAL '1 month' + INTERVAL '24 day');
 -- 변동 지출 — 식비/카페/문화/쇼핑/교통 (4개월치)
 INSERT INTO transactions (id, user_id, asset_id, amount, category, sender_name, transaction_at)
 SELECT gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', amount, category, sender, txn_at
