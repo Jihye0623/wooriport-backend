@@ -142,7 +142,8 @@ public class AgentService {
                 Assets.AccountType.CMA,      Assets.AccountType.HOUSING_SUBSCRIPTION);
 
         Set<Assets.AccountType> MODERATE_TYPES = Set.of(
-                Assets.AccountType.IRP,       Assets.AccountType.ISA,
+                Assets.AccountType.IRP,
+                Assets.AccountType.ISA,
                 Assets.AccountType.PENSION_SAVINGS);
 
         long totalBalance    = assets.stream()
@@ -421,7 +422,6 @@ public class AgentService {
         // 4. 기존 흐름 중 '미확정(isActive=false)'만 삭제 — 새 처방전 1세트로 교체
         //    '관리 시작하기'로 확정(isActive=true)한 포트폴리오는 보존
         List<PortfolioFlows> existing = portfolioFlowRepository.findAllByUserIdWithDetails(userId).stream()
-                .filter(f -> !Boolean.TRUE.equals(f.getIsActive()))
                 .collect(Collectors.toList());
         if (!existing.isEmpty()) {
             portfolioFlowRepository.deleteAll(existing);

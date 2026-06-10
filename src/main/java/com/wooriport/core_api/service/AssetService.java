@@ -40,6 +40,7 @@ public class AssetService {
     private final PortfolioRepository portfolioRepository;
     private final PortfolioFlowRepository portfolioFlowRepository;
     private final PortfolioFlowItemRepository portfolioFlowItemRepository;
+    private final DemoDataService demoDataService;
 
     @Transactional(readOnly = true)
     public MydataInstitutionsResponseDto getMydataInstitutions(UUID userId) {
@@ -266,13 +267,15 @@ public class AssetService {
         Users user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException());
 
-        // 해당 계좌의 최근 급여 트랜잭션 금액 → users.salary 저장
-        transactionRepository.findLatestSalaryTransactionByAssetId(asset.getId())
-                .ifPresent(tx -> user.updateSalary(tx.getAmount()));
-
         if (asset.isWooriBank()) {
             user.connectAutoTransfer(asset.getId());
         }
+
+        demoDataService.onSalaryAccountSet(userId, user.getEmail(), asset.getId());
+
+        // 해당 계좌의 최근 급여 트랜잭션 금액 → users.salary 저장
+        transactionRepository.findLatestSalaryTransactionByAssetId(asset.getId())
+                .ifPresent(tx -> user.updateSalary(tx.getAmount()));
 
         return SalarySettingResponseDto.builder()
                 .assetId(asset.getId())
