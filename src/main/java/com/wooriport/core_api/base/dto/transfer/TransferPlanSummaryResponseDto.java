@@ -53,6 +53,7 @@ public class TransferPlanSummaryResponseDto {
         private UUID assetId;
         private String institution;
         private String productType;
+        private String term;           // 흐름 기간: '단' / '중' / '장'
         private Long plannedAmount;    // 실제 (AI 조정 포함)
         private Long baselineAmount;   // flow.amount * productRatio / 100
         private Long diff;             // plannedAmount - baselineAmount
