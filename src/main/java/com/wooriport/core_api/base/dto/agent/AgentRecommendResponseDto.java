@@ -16,6 +16,7 @@ public class AgentRecommendResponseDto {
 
     private List<RebalancingPlan> rebalancingPlans;
     private Long remainingAmount;         // 남은 금액
+    private String reasoning;             // LLM 배분 결정 근거
 
     @Getter
     @Builder

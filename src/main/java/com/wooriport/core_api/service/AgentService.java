@@ -281,10 +281,20 @@ public class AgentService {
             }
         }
 
-        // 4. 보유 계좌 조회
+        // 4. 보유 계좌 조회 — CHECKING/PARKING/DEPOSIT/CMA 중 월급 통장 제외
         List<Assets> assets = assetRepository.findByUserIdAndDeletedAtIsNull(userId);
 
+        Set<Assets.AccountType> REBALANCE_TYPES = Set.of(
+                Assets.AccountType.CHECKING,
+                Assets.AccountType.PARKING,
+                Assets.AccountType.DEPOSIT,
+                Assets.AccountType.CMA
+        );
+        UUID autoTransferAssetId = user.getAutoTransferToAssetId();
+
         List<Map<String, Object>> assetList = assets.stream()
+                .filter(a -> REBALANCE_TYPES.contains(a.getAssetType()))
+                .filter(a -> !a.getId().equals(autoTransferAssetId))
                 .map(a -> Map.<String, Object>of(
                         "asset_id",    a.getId().toString(),
                         "account_name", a.getAccountName() != null ? a.getAccountName() : "",
@@ -360,6 +370,7 @@ public class AgentService {
                         totalFixed))
                 .rebalancingPlans(plans)
                 .remainingAmount(remainingAmount)
+                .reasoning(getString(flaskResponse, "reasoning"))
                 .build();
     }
 
