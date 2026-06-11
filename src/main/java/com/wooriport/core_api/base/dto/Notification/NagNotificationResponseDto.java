@@ -9,6 +9,7 @@ import java.util.UUID;
 @Builder
 public class NagNotificationResponseDto {
     private UUID id;
+    private UUID challengeId;
     private String type;
     private String challengeTitle;
     private String stockName;

@@ -22,6 +22,14 @@ public interface MiniChallengesRepository extends JpaRepository<MiniChallenges, 
 
     Optional<MiniChallenges> findFirstByUserIdAndStatus(UUID userId, MiniChallenges.ChallengeStatus status);
 
+    // 특정 챌린지(상태 무관) 본인 소유 검증 조회 — 리워드 주식 시세 조회용
+    Optional<MiniChallenges> findByIdAndUserId(UUID id, UUID userId);
+
+    // 성공/실패 알림 상세용 — 종료된 챌린지 중 가장 최근 것 (성공=completedAt, 실패=startedAt 기준)
+    Optional<MiniChallenges> findFirstByUserIdAndStatusOrderByCompletedAtDesc(UUID userId, MiniChallenges.ChallengeStatus status);
+
+    Optional<MiniChallenges> findFirstByUserIdAndStatusOrderByStartedAtDesc(UUID userId, MiniChallenges.ChallengeStatus status);
+
     // 월간 리포트 생성용 — 해당 월에 시작된 챌린지
     @Query("SELECT c FROM MiniChallenges c WHERE c.user.id = :userId AND c.startedAt >= :from AND c.startedAt < :to")
     List<MiniChallenges> findByUserIdAndMonth(

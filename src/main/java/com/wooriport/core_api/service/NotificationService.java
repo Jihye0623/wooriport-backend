@@ -159,9 +159,19 @@ public class NotificationService {
 
         nag.markAsRead();
 
-        MiniChallenges challenge = miniChallengesRepository
-                .findFirstByUserIdAndStatus(userId, MiniChallenges.ChallengeStatus.IN_PROGRESS)
-                .orElse(null);
+        // 알림 타입에 맞는 챌린지를 찾는다. 성공/실패 알림 시점엔 챌린지가 이미 종료(COMPLETED/FAILED)
+        // 상태라, IN_PROGRESS로만 찾으면 못 찾아 제목·리워드가 비어버린다.
+        MiniChallenges challenge = switch (nag.getType()) {
+            case CHALLENGE_COMPLETE -> miniChallengesRepository
+                    .findFirstByUserIdAndStatusOrderByCompletedAtDesc(userId, MiniChallenges.ChallengeStatus.COMPLETED)
+                    .orElse(null);
+            case CHALLENGE_FAILED -> miniChallengesRepository
+                    .findFirstByUserIdAndStatusOrderByStartedAtDesc(userId, MiniChallenges.ChallengeStatus.FAILED)
+                    .orElse(null);
+            default -> miniChallengesRepository
+                    .findFirstByUserIdAndStatus(userId, MiniChallenges.ChallengeStatus.IN_PROGRESS)
+                    .orElse(null);
+        };
 
         String challengeTitle = challenge != null ? challenge.getTitle() : null;
         String stockName = null;
@@ -182,6 +192,7 @@ public class NotificationService {
 
         return NagNotificationResponseDto.builder()
                 .id(nag.getId())
+                .challengeId(challenge != null ? challenge.getId() : null)
                 .type(nag.getType().name())
                 .challengeTitle(challengeTitle)
                 .stockName(stockName)
