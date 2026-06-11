@@ -24,12 +24,11 @@ VALUES
  true, NOW(), NOW());
 
 -- ETF 항목 (products 테이블에서 ticker 있는 ETF 1개 사용)
-INSERT INTO portfolio_flow_items (id, flow_id, product_id, product_ratio, ai_comment, created_at)
+INSERT INTO portfolio_flow_items (id, flow_id, product_id, product_ratio, created_at)
 SELECT gen_random_uuid(),
        'b0000001-0000-0000-0000-000000000001',
        p.id,
        70,
-       '글로벌 시장 성장에 연동된 ETF로 장기 수익을 노려요.',
        NOW()
 FROM products p
 WHERE p.product_type = 'ETF'
@@ -39,12 +38,11 @@ ORDER BY p.created_at ASC
 LIMIT 1;
 
 -- BOND 항목 (products 테이블에서 ticker 있는 BOND 1개, 없으면 두 번째 ETF 사용)
-INSERT INTO portfolio_flow_items (id, flow_id, product_id, product_ratio, ai_comment, created_at)
+INSERT INTO portfolio_flow_items (id, flow_id, product_id, product_ratio, created_at)
 SELECT gen_random_uuid(),
        'b0000001-0000-0000-0000-000000000001',
        p.id,
        30,
-       '채권 ETF로 변동성을 낮추고 안정성을 더해요.',
        NOW()
 FROM products p
 WHERE p.product_type IN ('BOND', 'ETF')

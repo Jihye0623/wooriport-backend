@@ -39,10 +39,6 @@ public class PortfolioFlowItems extends BaseEntity {
     @Column(name = "product_ratio")
     private Integer productRatio;
 
-    // AI 코멘트
-    @Column(name = "ai_comment", columnDefinition = "TEXT")
-    private String aiComment;
-
     // ──────────────────────────────────────
     // 비즈니스 메서드
     // ──────────────────────────────────────
