@@ -33,7 +33,7 @@ public class ChallengeScheduler {
      * 테스트: "0 * * * * *" (매분)
      * 운영:   "0 0 0 * * *" (매일 자정)
      */
-    @Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 * * * * *")   // 테스트: 매분 / 운영 복귀 시 "0 0 0 * * *"
     @Transactional
     public void checkExpiredChallenges() {
         LocalDateTime expiredBefore = LocalDateTime.now().minusDays(7);

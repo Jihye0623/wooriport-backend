@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @Tag(name = "Stocks", description = "주식 시세 API")
 @RestController
 @RequestMapping("/api/v1/stocks")
@@ -24,13 +26,17 @@ public class StockController {
     private final ProductRepository productRepository;
     private final MiniChallengesRepository miniChallengesRepository;
 
-    @Operation(summary = "진행 중인 미니챌린지의 보상 주식 시세 및 살 수 있는 주 수 조회")
+    @Operation(summary = "미니챌린지의 보상 주식 시세 및 살 수 있는 주 수 조회",
+            description = "challengeId를 주면 해당 챌린지(상태 무관)의 보상 주식을, 없으면 진행 중인 챌린지를 조회합니다.")
     @GetMapping
     public ResponseEntity<ResponseDTO<StockDetailResponseDto>> getStock(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) UUID challengeId) {
 
-        MiniChallenges challenge = miniChallengesRepository
-                .findFirstByUserIdAndStatus(userDetails.getUserId(), MiniChallenges.ChallengeStatus.IN_PROGRESS)
+        // challengeId가 오면 그 챌린지(성공/실패 포함)를, 없으면 진행 중인 챌린지를 사용
+        MiniChallenges challenge = (challengeId != null
+                ? miniChallengesRepository.findByIdAndUserId(challengeId, userDetails.getUserId())
+                : miniChallengesRepository.findFirstByUserIdAndStatus(userDetails.getUserId(), MiniChallenges.ChallengeStatus.IN_PROGRESS))
                 .orElse(null);
 
         if (challenge == null || challenge.getRewardStockTicker() == null) {
