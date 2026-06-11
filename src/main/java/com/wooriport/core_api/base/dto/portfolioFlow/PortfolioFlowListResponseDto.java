@@ -26,8 +26,8 @@ public class PortfolioFlowListResponseDto {
         // true = 계좌 추천(gatheringAsset=null, 추천 계좌는 products 로 내려감)
         // false = 보유 계좌 모으기(gatheringAsset 존재)
         private Boolean isRecommendation;
+        private String reasoning;          // 흐름 배분 근거 (AI)
 
-        private String accountComment;     // 모을 통장 추천 이유 (AI)
         private Double expectedRrPct;      // 1년 예상 수익률(%)
         private Integer investmentMonths;  // 예상 산정 기간(개월)
         private Double expectedAmount;     // 복리 고려 N개월 후 예상 수익
@@ -75,6 +75,5 @@ public class PortfolioFlowListResponseDto {
         private String productName;
         private String productInstitution;
         private Float interestRate;   // products.interest_rate → 프론트 rate 표시용
-        private String comment;       // 상품 추천 이유 (AI) — portfolio_flow_items.ai_comment
     }
 }

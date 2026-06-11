@@ -474,7 +474,7 @@ public class AgentService {
                     .gatheringType(gatheringAccount != null ? getString(gatheringAccount, "type") : null)
                     .gatheringInstitution(gatheringAccount != null ? getString(gatheringAccount, "institution") : null)
                     .gatheringInterestRate(gatheringAccount != null ? toDouble(gatheringAccount.get("interest_rate")) : null)
-                    .accountComment(getString(flowDto, "account_comment"))
+                    .reasoning(getString(flowDto, "reasoning"))
                     .expectedRrPct(toDouble(flowDto.get("expected_rr_pct")))
                     .investmentMonths(toInteger(flowDto.get("investment_months")))
                     .expectedAmount(toDouble(flowDto.get("expected_amount")))
@@ -497,7 +497,6 @@ public class AgentService {
                             .flow(savedFlow)
                             .product(product)
                             .productRatio(ratio)
-                            .aiComment(getString(p, "comment"))
                             .build());
                 }
             }

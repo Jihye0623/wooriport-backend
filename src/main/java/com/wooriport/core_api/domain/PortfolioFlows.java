@@ -60,9 +60,9 @@ public class PortfolioFlows extends BaseEntity {
     @Column(name = "gathering_interest_rate")
     private Double gatheringInterestRate;
 
-    // 모을 통장 추천 이유 (AI)
-    @Column(name = "account_comment", columnDefinition = "TEXT")
-    private String accountComment;
+    // 흐름 배분 근거 (AI reasoning)
+    @Column(name = "reasoning", columnDefinition = "TEXT")
+    private String reasoning;
 
     // 1년 예상 수익률 (%)
     @Column(name = "expected_rr_pct")
