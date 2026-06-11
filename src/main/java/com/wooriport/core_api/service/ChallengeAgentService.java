@@ -70,7 +70,7 @@ public class ChallengeAgentService {
                 "user_id",        userId.toString(),
                 "title",          challenge.getTitle(),
                 "category",       challenge.getCategory(),
-                "challenge_type", challenge.getChallengeType().name().toLowerCase(),
+                "challenge_type", challenge.getChallengeType().name(),
                 "target",         challenge.getTarget(),
                 "current",        challenge.getCurrentValue(),
                 "progress_pct",   progressPct
