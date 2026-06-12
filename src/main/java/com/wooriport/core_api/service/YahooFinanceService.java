@@ -1,6 +1,7 @@
 package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.stock.StockDetailResponseDto;
+import com.wooriport.core_api.repository.ProductRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -18,9 +19,12 @@ import java.util.Map;
 public class YahooFinanceService {
 
     private final WebClient yahooWebClient;
+    private final ProductRepository productRepository;
 
-    public YahooFinanceService(@Qualifier("yahooWebClient") WebClient yahooWebClient) {
+    public YahooFinanceService(@Qualifier("yahooWebClient") WebClient yahooWebClient,
+                               ProductRepository productRepository) {
         this.yahooWebClient = yahooWebClient;
+        this.productRepository = productRepository;
     }
 
     /**
@@ -112,7 +116,9 @@ public class YahooFinanceService {
             @SuppressWarnings("unchecked")
             Map<String, Object> meta = (Map<String, Object>) result.get("meta");
             double currentPrice = toDouble(meta.get("regularMarketPrice"));
-            String name = meta.getOrDefault("shortName", ticker).toString();
+            String name = productRepository.findFirstByTicker(ticker)
+                    .map(p -> p.getName())
+                    .orElseGet(() -> meta.getOrDefault("shortName", ticker).toString());
 
             @SuppressWarnings("unchecked")
             List<Number> timestamps = (List<Number>) result.get("timestamp");
