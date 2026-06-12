@@ -233,7 +233,7 @@ public class DashboardService {
     private String labelOf(String productType) {
         if (productType == null) return null;
         return switch (productType.toUpperCase()) {
-            case "STOCK", "BOND" -> "ETF";
+            case "STOCK", "BOND", "ETF" -> "ETF";
             case "DEPOSIT"       -> "현금성";
             case "SAVING"        -> "적금";
             case "IRP"           -> "IRP";

@@ -92,15 +92,7 @@ public class PortfolioFlowService {
             flow.linkGatheringAsset(opened);
         }
 
-        // 4. 기존 상품 AI 코멘트 보존 (productId 매칭) — 재INSERT 시 이어붙이기 위함
-        Map<UUID, String> commentByProduct = flow.getItems().stream()
-                .filter(i -> i.getProduct() != null && i.getAiComment() != null)
-                .collect(Collectors.toMap(
-                        i -> i.getProduct().getId(),
-                        PortfolioFlowItems::getAiComment,
-                        (a, b) -> a));
-
-        // 5. 기존 items 삭제 후 상품(PUT) 재INSERT
+        // 4. 기존 items 삭제 후 상품(PUT) 재INSERT
         portfolioFlowItemRepository.deleteByFlowId(flowId);
         portfolioFlowItemRepository.flush();  // DELETE 가 INSERT 보다 먼저 수행되도록 보장
 
@@ -119,13 +111,11 @@ public class PortfolioFlowService {
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "넣기 자산을 찾을 수 없습니다: " + prod.getAssetId()));
                 }
-                String aiComment = p != null ? commentByProduct.get(p.getId()) : null;
                 newItems.add(PortfolioFlowItems.builder()
                         .flow(flow)
                         .asset(a)
                         .product(p)
                         .productRatio(prod.getProductRatio())
-                        .aiComment(aiComment)
                         .build());
             }
         }
@@ -358,7 +348,7 @@ public class PortfolioFlowService {
                 .amount(flow.getAmount())
                 .isActive(flow.getIsActive())
                 .isRecommendation(flow.getGatheringAsset() == null)  // 모을 통장 없음 = 계좌 추천
-                .accountComment(flow.getAccountComment())
+                .reasoning(flow.getReasoning())
                 .expectedRrPct(flow.getExpectedRrPct())
                 .investmentMonths(flow.getInvestmentMonths())
                 .expectedAmount(flow.getExpectedAmount())
@@ -415,7 +405,6 @@ public class PortfolioFlowService {
                 .productName(p != null ? p.getName() : null)
                 .productInstitution(p != null ? p.getInstitution() : null)
                 .interestRate(p != null ? p.getInterestRate() : null)
-                .comment(item.getAiComment())
                 .build();
     }
 }

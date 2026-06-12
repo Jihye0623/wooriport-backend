@@ -66,10 +66,12 @@ public class TransferPlanService {
                 .filter(p -> p.getAsset() != null)
                 .collect(Collectors.toMap(p -> p.getAsset().getId(), Function.identity(), (a, b) -> a));
 
-        // flow 기준값: gatheringAssetId → flow.amount
-        Map<UUID, Long> flowBaselineByAssetId = portfolioFlowRepository
+        // flow 기준값: gatheringAssetId → PortfolioFlows (amount + term 조회용)
+        Map<UUID, PortfolioFlows> flowByAssetId = portfolioFlowRepository
                 .findActiveByUserIdWithGatheringAsset(userId).stream()
-                .collect(Collectors.toMap(f -> f.getGatheringAsset().getId(), PortfolioFlows::getAmount, (a, b) -> a));
+                .collect(Collectors.toMap(f -> f.getGatheringAsset().getId(), f -> f, (a, b) -> a));
+        Map<UUID, Long> flowBaselineByAssetId = flowByAssetId.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getAmount()));
 
         // 플랜을 portfolio / flow 로 분류
         List<TransferPlanSummaryResponseDto.PortfolioPlanItem> portfolioItems = new ArrayList<>();
@@ -93,12 +95,14 @@ public class TransferPlanService {
                         .isConfirmed(plan.getIsConfirmed())
                         .build());
 
-            } else if (flowBaselineByAssetId.containsKey(assetId)) {
-                Long baseline = flowBaselineByAssetId.get(assetId);
+            } else if (flowByAssetId.containsKey(assetId)) {
+                PortfolioFlows flow = flowByAssetId.get(assetId);
+                Long baseline = flow.getAmount();
                 flowPlanItems.add(TransferPlanSummaryResponseDto.FlowPlanItem.builder()
                         .planId(plan.getId())
                         .assetId(assetId)
                         .institution(plan.getAsset().getInstitution())
+                        .term(flow.getTerm())
                         .plannedAmount(plan.getPlannedAmount())
                         .baselineAmount(baseline)
                         .diff(plan.getPlannedAmount() - baseline)
