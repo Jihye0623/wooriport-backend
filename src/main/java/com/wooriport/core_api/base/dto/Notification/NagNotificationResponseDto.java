@@ -14,6 +14,7 @@ public class NagNotificationResponseDto {
     private String challengeTitle;
     private String stockName;
     private Double affordableShares;
+    private Long estimatedSaving;   // 절약한 금액(원) — MiniChallenges.estimatedSaving DB값
     private String content;
     private Boolean isRead;
     private String sentAt;
