@@ -176,6 +176,7 @@ public class NotificationService {
         String challengeTitle = challenge != null ? challenge.getTitle() : null;
         String stockName = null;
         Double affordableShares = null;
+        String content = nag.getContent();
 
         if (challenge != null && challenge.getRewardStockTicker() != null) {
             StockDetailResponseDto detail = yahooFinanceService
@@ -187,6 +188,18 @@ public class NotificationService {
 
             if (detail != null) {
                 affordableShares = detail.getAffordableShares();
+
+                // 성공 알림 문구는 주가가 매일 변동되므로, 완료 시점에 저장된 content 대신
+                // 현재가 기준으로 매번 다시 계산해 내려준다 (주식 수·현재가가 항상 최신).
+                if (nag.getType() == Notifications.NotificationType.CHALLENGE_COMPLETE
+                        && challenge.getEstimatedSaving() != null && affordableShares != null) {
+                    content = String.format(
+                            "절약한 %,d원으로 %s %.2f주 살 수 있어요! (현재가 %,d원)",
+                            challenge.getEstimatedSaving(),
+                            stockName,
+                            affordableShares,
+                            Math.round(detail.getCurrentPrice()));
+                }
             }
         }
 
@@ -197,7 +210,8 @@ public class NotificationService {
                 .challengeTitle(challengeTitle)
                 .stockName(stockName)
                 .affordableShares(affordableShares)
-                .content(nag.getContent())
+                .estimatedSaving(challenge != null ? challenge.getEstimatedSaving() : null)
+                .content(content)
                 .isRead(nag.getIsRead())
                 .sentAt(nag.getSentAt().toString())
                 .build();
