@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS vector;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS avg_trading_value bigint;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS volatility        double precision;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS acc_trdvol        bigint;

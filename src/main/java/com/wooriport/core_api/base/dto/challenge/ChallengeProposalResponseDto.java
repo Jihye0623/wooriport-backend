@@ -32,5 +32,6 @@ public class ChallengeProposalResponseDto {
     private String ticker;
 
     @Setter
+    @JsonAlias("ticker_name")
     private String tickerName;
 }
