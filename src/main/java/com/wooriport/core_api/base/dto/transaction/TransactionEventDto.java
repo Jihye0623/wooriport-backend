@@ -13,6 +13,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class TransactionEventDto {
 
+    // PG 거래고유번호(멱등키). Phase 1부터 중복 적재 방지에 사용. (실제 카드결제 승인번호 역할)
+    @JsonProperty("event_id")
+    private String eventId;
+
     @JsonProperty("asset_number")
     private String assetNumber;
 
@@ -24,4 +28,8 @@ public class TransactionEventDto {
     private String senderName;
 
     private LocalDateTime transactionAt;
+
+    // 발행 시각(epoch ms). E2E 지연 측정용.
+    @JsonProperty("producedAt")
+    private Long producedAt;
 }

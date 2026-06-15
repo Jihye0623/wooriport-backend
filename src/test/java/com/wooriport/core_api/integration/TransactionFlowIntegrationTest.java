@@ -94,10 +94,12 @@ class TransactionFlowIntegrationTest {
                 .password("pw").email("challenge@test.com").name("김철수").build());
         Assets asset = assetRepository.save(creditCard(user, "1111-2222-3333-4444"));
 
-        // 진행 중인 "식비" 금액(AMOUNT) 챌린지(한도 충분히 큼)를 Redis에 등록
+        // 진행 중인 "식비" 금액(AMOUNT) 챌린지(한도 충분히 큼)를 Redis에 등록.
+        // 거래(식비·12:34 점심시간)가 매칭되도록 서브타입은 LUNCH(식비 11~14시).
         MiniChallenges challenge = MiniChallenges.builder()
                 .id(UUID.randomUUID()).user(user).title("식비 절약").category("식비")
                 .challengeType(MiniChallenges.ChallengeType.AMOUNT)
+                .challengeSubType(MiniChallenges.ChallengeSubType.LUNCH)
                 .target(10_000_000L)
                 .status(MiniChallenges.ChallengeStatus.IN_PROGRESS)
                 .build();

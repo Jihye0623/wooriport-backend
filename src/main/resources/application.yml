@@ -10,7 +10,8 @@ spring:
 
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wooriport}
+    # reWriteBatchedInserts=true: 다중 단건 INSERT → 멀티로우 INSERT 재작성 (PostgreSQL JDBC 최적화)
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wooriport?reWriteBatchedInserts=true}
 
   jpa:
     hibernate:
@@ -19,6 +20,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        # saveAll 배치 INSERT 활성화 (100건씩 묶어서 전송)
+        jdbc:
+          batch_size: 100
+        order_inserts: true
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -27,6 +32,14 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # 배치 poll 크기 (SalaryRetryConsumer 는 단건 처리라 영향 없음)
+      max-poll-records: 2000
+    # 급여 재처리 토픽 발행용 프로듀서 (JSON 문자열)
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        linger.ms: 0
 
   batch:
     job:
@@ -56,9 +69,23 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      # 처리량 측정용 Timer 퍼센타일(클라이언트 계산) 노출 → Grafana
+      percentiles:
+        tx.e2e.latency: 0.5, 0.95, 0.99
+        tx.persist: 0.5, 0.95, 0.99
+        tx.challenge: 0.5, 0.95, 0.99
+        tx.salary: 0.5, 0.95, 0.99
+        tx.batch.size: 0.5, 0.95, 0.99
 
 flask:
   ml-url: ${FLASK_ML_URL:http://localhost:8000}
 
 demo:
   email: ${DEMO_EMAIL:fisache@email.com}
+
+# Kafka 파티션/컨슈머 동시성 (Phase 4 결론: p6×c6 가 현실 카디널리티 최적)
+wooriport:
+  kafka:
+    partitions: 6            # transaction-events 파티션 수 (증가만 가능; 줄이려면 토픽 삭제)
+    consumer-concurrency: 6  # 컨슈머 동시 스레드 수 (반드시 ≤ partitions)
