@@ -223,6 +223,9 @@ public class ReportService {
         flaskBody.put("asset_snapshots", buildFlaskAssetSnapshots(snapshots));
         flaskBody.put("transaction_log", txLog);
 
+        long prevTotalExpense = prevExpenseList.stream().mapToLong(t -> -t.getAmount()).sum();
+        flaskBody.put("prev_total_expense", prevTotalExpense);
+
         // 7. Flask 호출
         Map<String, Object> res = callFlask(flaskBody);
         if (res == null) {
