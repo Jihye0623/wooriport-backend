@@ -102,7 +102,7 @@ Prometheus/Grafana ◄ 메트릭 수집 및 시각화
 |-------|------|--------|
 | Phase 1 | 메시지 1건당 SELECT + saveAndFlush | DB 병목 |
 | Phase 2 | `@KafkaListener(batch=true)` — poll 단위 배치 | ✅ 채택 |
-| Phase 3 | 파티션 6 × 컨슈머 6 병렬 처리 | ✅ 채택 |
+| Phase 3, 4 | 파티션 6 × 컨슈머 6 병렬 처리 | ✅ 채택 |
 
 **Phase 2 배치 처리 흐름:**
 1. Intra-batch dedup — poll 내 중복 첫 번째만 통과
