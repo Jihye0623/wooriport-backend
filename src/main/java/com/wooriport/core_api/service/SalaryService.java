@@ -14,6 +14,7 @@ public class SalaryService {
 
     /**
      * 급여 입금이면 이체 계획을 자동 생성한다. (급여가 아니거나 자동이체 계좌가 아니면 아무 것도 안 함)
+     * generateFromSalary 는 미확인 플랜 delete+재생성이라 재실행해도 멱등(이체계획 중복 없음).
      */
     public void handleIfSalary(PersistedTransaction tx) {
         if (!tx.isIncome() || !isSalary(tx.category())) return;
