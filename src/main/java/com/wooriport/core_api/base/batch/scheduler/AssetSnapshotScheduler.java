@@ -29,7 +29,7 @@ public class AssetSnapshotScheduler {
      * "0 * * * * *"      → 매분 실행
      * "0 0 0 * * MON"    → 매주 월요일 자정 (운영)
      */
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 0 * * MON")
     public void run() {
         try {
             JobParameters params = new JobParametersBuilder()

@@ -1,15 +1,10 @@
 package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
-import com.wooriport.core_api.base.dto.user.PortiSurveyRequestDto;
-import com.wooriport.core_api.base.dto.user.PortiSurveyResultDto;
-import com.wooriport.core_api.base.dto.user.PortiTypeUpdateRequestDto;
 import com.wooriport.core_api.base.dto.user.UserGoalResponseDto;
 import com.wooriport.core_api.base.dto.user.UserGoalUpdateRequestDto;
 import com.wooriport.core_api.config.security.CustomUserDetails;
 import com.wooriport.core_api.service.UsersService;
-import io.swagger.v3.oas.annotations.Operation;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

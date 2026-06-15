@@ -1,10 +1,7 @@
 package com.wooriport.core_api.service;
 
 import com.wooriport.core_api.base.dto.transfer.TransferExecutionListResponseDto;
-import com.wooriport.core_api.base.dto.transfer.TransferExecutionResponseDto;
-import com.wooriport.core_api.domain.Assets;
 import com.wooriport.core_api.domain.TransferExecutions;
-import com.wooriport.core_api.domain.TransferPlans;
 import com.wooriport.core_api.repository.AssetRepository;
 import com.wooriport.core_api.repository.TransferExecutionRepository;
 import com.wooriport.core_api.repository.TransferPlanRepository;
