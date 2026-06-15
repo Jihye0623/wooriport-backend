@@ -3,14 +3,11 @@ package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
 import com.wooriport.core_api.base.dto.transaction.SalaryTransactionListResponseDto;
-import com.wooriport.core_api.base.dto.transfer.TransferPlanListResponseDto;
 import com.wooriport.core_api.config.security.CustomUserDetails;
 import com.wooriport.core_api.service.TransactionService;
-import com.wooriport.core_api.service.TransferPlanService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

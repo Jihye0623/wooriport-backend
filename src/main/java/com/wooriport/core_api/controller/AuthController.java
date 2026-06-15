@@ -2,11 +2,9 @@ package com.wooriport.core_api.controller;
 
 import com.wooriport.core_api.base.dto.Auth.AuthDto;
 import com.wooriport.core_api.base.dto.response.ResponseDTO;
-import com.wooriport.core_api.config.security.CustomUserDetails;
 import com.wooriport.core_api.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 

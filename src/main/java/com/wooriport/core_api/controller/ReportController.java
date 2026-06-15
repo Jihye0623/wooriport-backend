@@ -21,9 +21,6 @@ public class ReportController {
 
     private final ReportService reportService;
 
-    // ────────────────────────────────────────────
-    // GET /reports
-    // ────────────────────────────────────────────
     @Operation(summary = "리포트 목록 조회", description = "사용자의 전체 월간 리포트 목록을 조회합니다.")
     @GetMapping
     public ResponseEntity<ResponseDTO<ReportListResponseDto>> getReports(
@@ -35,9 +32,6 @@ public class ReportController {
                 ResponseDTO.success(200, "리포트 목록 조회 성공", data));
     }
 
-    // ────────────────────────────────────────────
-    // GET /reports/{year}/{month}
-    // ────────────────────────────────────────────
     @Operation(summary = "특정 월 리포트 상세 조회")
     @GetMapping("/{year}/{month}")
     public ResponseEntity<ResponseDTO<ReportDetailResponseDto>> getReport(
