@@ -156,7 +156,9 @@ public class TransactionService {
                 continue;
             }
             Users user = asset.getUser();
-            long amount = -Math.abs(event.getAmount());
+            // 목서버는 수입/지출 모두 amount 를 양수로 발행한다 → 급여류 카테고리면 입금(+), 그 외는 지출(−)
+            boolean isIncome = isSalaryCategory(event.getCategory());
+            long amount = isIncome ? Math.abs(event.getAmount()) : -Math.abs(event.getAmount());
 
             toSave.add(Transactions.builder()
                     .eventId(event.getEventId())
@@ -176,7 +178,7 @@ public class TransactionService {
                     event.getSenderName(),
                     event.getTransactionAt(),
                     Math.abs(event.getAmount()),
-                    event.getAmount() > 0));
+                    isIncome));
         }
 
         transactionRepository.saveAll(toSave);
@@ -184,6 +186,15 @@ public class TransactionService {
         log.info("배치 적재 완료 — poll={}, 신규={}, 중복(배치내={}, DB={})",
                 events.size(), results.size(), batchDups, dbDups);
         return new BatchPersistResult(results, totalDups);
+    }
+
+    // 급여류 카테고리 = 입금. SalaryService.isSalary 와 동일 기준.
+    private boolean isSalaryCategory(String category) {
+        if (category == null) return false;
+        return category.contains("급여")
+                || category.contains("월급")
+                || category.contains("임금")
+                || category.contains("salary");
     }
 
     @Transactional(readOnly = true)

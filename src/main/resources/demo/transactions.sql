@@ -16,14 +16,14 @@ INSERT INTO transactions (id, user_id, asset_id, amount, category, sender_name, 
 INSERT INTO transactions (id, user_id, asset_id, amount, category, sender_name, transaction_at)
 SELECT gen_random_uuid(), '{USER_ID}', '{SALARY_ASSET_ID}', amount, category, sender, txn_at
 FROM (VALUES
-    -- 6월 (현재)
-    (-450000, '식비',       '배달의민족',   date_trunc('month', NOW()) + INTERVAL '1 day'),
-    (-180000, '식비',       '쿠팡이츠',     date_trunc('month', NOW()) + INTERVAL '4 day'),
-    (-150000, '카페',       '스타벅스',     date_trunc('month', NOW()) + INTERVAL '8 day'),
-    (-241000, '문화/여가',  'CGV',          date_trunc('month', NOW()) + INTERVAL '6 day'),
-    (-260000, '온라인쇼핑', '쿠팡',         date_trunc('month', NOW()) + INTERVAL '2 day'),
-    (-150000, '교통',       '카카오T',      date_trunc('month', NOW()) + INTERVAL '3 day'),
-    ( -46000, '교통',       '티머니',       date_trunc('month', NOW()) + INTERVAL '13 day'),
+    -- 6월 (현재) — 5월 대비 약 20만원 절약
+    (-250000, '식비',       '배달의민족',   date_trunc('month', NOW()) + INTERVAL '1 day'),
+    (-120000, '식비',       '쿠팡이츠',     date_trunc('month', NOW()) + INTERVAL '4 day'),
+    (-100000, '카페',       '스타벅스',     NOW()),   -- 오늘 거래 — 이번 주 요일별 지출 한 칸 채우기 (월 총액 동일)
+    (-160000, '문화/여가',  'CGV',          date_trunc('month', NOW()) + INTERVAL '6 day'),
+    (-255000, '온라인쇼핑', '쿠팡',         date_trunc('month', NOW()) + INTERVAL '2 day'),
+    (-120000, '교통',       '카카오T',      date_trunc('month', NOW()) + INTERVAL '3 day'),
+    ( -30000, '교통',       '티머니',       date_trunc('month', NOW()) + INTERVAL '13 day'),
     -- 5월
     (-420000, '식비',       '배달의민족',   date_trunc('month', NOW()) - INTERVAL '1 month' + INTERVAL '2 day'),
     (-130000, '카페',       '투썸플레이스', date_trunc('month', NOW()) - INTERVAL '1 month' + INTERVAL '5 day'),

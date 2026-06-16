@@ -153,7 +153,10 @@ public class DashboardService {
     // 이번 주(월~일) 요일별 지출 합계. 인덱스 0=월 … 6=일
     private List<Long> buildWeeklyExpenses(UUID userId, LocalDate weekMonday) {
         LocalDateTime start = weekMonday.atStartOfDay();
-        LocalDateTime end = weekMonday.plusDays(7).atStartOfDay().minusNanos(1);   // 일요일 끝 (findExpensesBetween 은 <= to)
+        // 미래 요일은 집계 제외 — 이번 주 일요일과 '오늘' 중 빠른 날의 끝까지만 합산
+        LocalDate weekSunday = weekMonday.plusDays(6);
+        LocalDate lastDay = LocalDate.now().isBefore(weekSunday) ? LocalDate.now() : weekSunday;
+        LocalDateTime end = lastDay.plusDays(1).atStartOfDay().minusNanos(1);   // 마지막 집계일 끝 (findExpensesBetween 은 <= to)
         long[] weekly = new long[7];
         for (Transactions t : transactionRepository.findExpensesBetween(userId, start, end)) {
             if (t.getAmount() == null || t.getTransactionAt() == null) continue;
