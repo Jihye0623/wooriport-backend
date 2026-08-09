@@ -44,3 +44,6 @@ logs/
 ### 보안 ###
 src/main/resources/application-secret.yml
 .env
+
+### 로컬 인프라(별도 repo, 클론만) ###
+/infra/
