@@ -172,7 +172,11 @@ Prometheus/Grafana ◄ 메트릭 수집 및 시각화
 
 ### 1. 인프라 실행 (Docker)
 
+인프라(Postgres/Redis/Kafka)는 별도 저장소의 docker-compose로 띄웁니다.
+
 ```bash
+git clone https://github.com/FISA06-final-project-TeamFisache/infra.git
+cp init.sql infra/init.sql   # pgvector 확장 초기화 스크립트 — postgres 컨테이너 최초 기동 시 필요
 cd infra
 docker-compose up -d postgres redis kafka
 ```
@@ -186,9 +190,10 @@ spring:
   datasource:
     username: wooriport
     password: wooriport1234
-  security:
-    jwt:
-      secret: <your-jwt-secret>
+
+jwt:
+  secret-key: <your-jwt-secret>
+  access-expiration-time: 3600000
 ```
 
 ### 3. 앱 실행
@@ -196,6 +201,18 @@ spring:
 ```bash
 ./gradlew bootRun
 ```
+
+---
+
+## 테스트 실행 방법
+
+```bash
+./gradlew test
+```
+
+- 대부분은 Mockito 기반 단위테스트라 인프라 없이 바로 돌아갑니다.
+- `TransactionFlowIntegrationTest`, `TransactionRepositoryTest`, `BatchJobIntegrationTest` 등 일부는 Testcontainers로 PostgreSQL(+ EmbeddedKafka)을 직접 띄워 검증하므로 **로컬에 Docker가 떠 있어야** 합니다.
+- `TransactionIndexPerfTest`는 인덱스 성능 확인용 스파이크 테스트로 기본 비활성화(`@Disabled`)돼 있습니다. 확인하려면 어노테이션을 지우고 단독 실행하세요.
 
 ---
 
