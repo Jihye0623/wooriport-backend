@@ -214,6 +214,22 @@ jwt:
 - `TransactionFlowIntegrationTest`, `TransactionRepositoryTest`, `BatchJobIntegrationTest` 등 일부는 Testcontainers로 PostgreSQL(+ EmbeddedKafka)을 직접 띄워 검증하므로 **로컬에 Docker가 떠 있어야** 합니다.
 - `TransactionIndexPerfTest`는 인덱스 성능 확인용 스파이크 테스트로 기본 비활성화(`@Disabled`)돼 있습니다. 확인하려면 어노테이션을 지우고 단독 실행하세요.
 
+### 테스트 커버리지 보강 히스토리
+
+포크 이후 얕았던 테스트 커버리지를 브랜치 단위로 보강한 기록입니다.
+
+| # | 브랜치 | 대상 | 검증/실험 내용 |
+|---|--------|------|----------------|
+| 1 | `test/tax-benefit-service` | TaxBenefitService, TaxBenefitPolicy | 세액공제율 경계값, 연금저축·IRP 합산 한도 배분, ISA 수익률 계산 |
+| 2 | `test/transfer-plan-service` | TransferPlanService | 이체 계획 조회/분류/diff 계산, 급여 감지 자동 생성(AI 호출 실패 폴백), 확인·실행 시 잔액 체크와 순차 처리 |
+| 3 | `test/rebalancing-tasklet` | RebalancingTasklet | 리밸런싱 배치 스킵 조건, 계좌 간 잔액 대칭 이동, 유저별 예외 격리 |
+| 4 | `test/notification-service` | NotificationService | SSE 생명주기(구독/콜백/emitter 정리), 잔소리 알림의 챌린지 매칭 + 주가 연동 로직 |
+| 5 | `test/batch-tasklets-remaining` | SalaryTransferTasklet, MonthlyReportTasklet | 급여 자동이체 잔액 대칭 검증, 이체 계획 생성 실패해도 이체는 유지, 월간 리포트 대상 연월 계산 |
+| 6 | `test/asset-snapshot-batch` | AssetSnapshotItemProcessor/Writer | 계좌 타입별(저축형/투자형/기타) 스냅샷 분류, null 잔액 처리 |
+| 7 | `test/transaction-repository-query` | TransactionRepository | Postgres 전용 함수(`EXTRACT`)를 쓰는 쿼리를 Testcontainers로 실제 DB에 검증 |
+| 8 | `test/index-perf-spike` | `Transactions` 복합 인덱스 | `user_id` 단일 인덱스 vs `(user_id, transaction_at)` 복합 인덱스로 동일 쿼리 `EXPLAIN ANALYZE` 비교 — 복합 인덱스가 플래너 비용을 약 65% 절감함을 확인 |
+| 9 | `test/batch-job-integration` | Spring Batch Job 배선 | `JobLauncherTestUtils`로 실제 Job 실행 — Step 순서, `ExitStatus`, 청크 파이프라인(reader→processor→writer) 검증 |
+
 ---
 
 ## 프로젝트 구조
